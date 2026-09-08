@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
+coverage/
+.DS_Store
+*.log
+.idea/
+.vscode/settings.json
+postgres-data/
+redis-data/
+tmp/
