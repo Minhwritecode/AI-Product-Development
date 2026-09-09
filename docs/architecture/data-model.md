@@ -13,6 +13,8 @@ Branch ──< BranchStock >── Ingredient
 MenuItem ──< RecipeVersion ──< RecipeLine >── Ingredient
 Branch ──< DailyCount ──< WastageLine >── Ingredient
 All mutations ──< AuditLog
+GuestSession ──< QueueEntry >── QueuePolicy
+GuestSession ──< FOHRequest >── TableSession
 ```
 
 ## Required fields
@@ -41,9 +43,20 @@ All mutations ──< AuditLog
 
 `branch_id`, `count_date`, `ingredient_id`, `opening_qty`, `received_qty`, `sold_qty_theory?`, `closing_qty_actual`, `variance_qty`, `variance_status`; wastage line includes `qty`, `reason`, `standard_price_snapshot`, `value`.
 
+### FOH Guest / Queue / Request
+
+- `GuestSession`: `id`, `locale`, `consent/notification_preference`, `expires_at`, `created_at`; không chứa PII mặc định.
+- `QueueEntry`: `id`, `location_id`, `session_id`, `party_size`, `time_budget_min/max`, `status`, `estimated_wait_min/max`, `as_of`, `created_at`, `called_at?`, `seated_at?`.
+- `TableSession`: `id`, `table_id`, `signed_token_hash`, `status`, `expires_at`.
+- `FOHRequest`: `id`, `table_session_id`, `type` (`ADD_ON`/`ASSISTANCE`), `lines`, `note`, `allergen_note?`, `status`, `idempotency_key`, `acknowledged_by?`, `routed_to?`, timestamps.
+
+FOH request does not directly close a bill, process payment or mutate stock; it becomes an operational signal after staff acknowledgement.
+
 ## Invariants
 
 - FK references must exist and be active when creating a new transaction.
 - Stock mutation and ledger event are atomic.
 - Money precision is explicit (VND integer minor unit or decimal policy; choose one before migration).
 - Historical record uses snapshot/version where business meaning can change.
+- Queue estimates are historical/operational projections, not a promise about a specific guest departure.
+- Guest can leave queue and expired QR tokens cannot access a table session.

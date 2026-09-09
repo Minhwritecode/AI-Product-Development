@@ -238,6 +238,100 @@ Là FOH/Kitchen lead, tôi muốn biết món bị ảnh hưởng khi ingredient
 - Không tự disable menu item trong MVP; chỉ cảnh báo tích hợp.
 - Có source và timestamp của signal.
 
+## FOH Lite — Front-door QR
+
+### US-FOH-01 — Xem tình trạng bàn không cần app (MVP)
+
+Là khách du lịch/khách vãng lai, tôi muốn scan QR trước nhà hàng và biết nhà hàng còn nhận khách hay phải chờ bao lâu mà không cần đăng nhập.
+
+**Acceptance criteria**
+
+- Trang mở được trên mobile và cho chọn Vietnamese/English.
+- Availability có text rõ, estimated range, timestamp và limitation nếu dữ liệu stale.
+- Không bắt tải app, tạo account hoặc nhập contact trước khi xem kết quả.
+
+### US-FOH-02 — Chọn theo time budget (MVP)
+
+Là khách đang có lịch trình, tôi muốn nhập nhóm của mình và khoảng thời gian có thể chờ để quyết định có nên xếp hàng.
+
+**Acceptance criteria**
+
+- Party size và time budget là các input dễ chạm, label rõ.
+- Nếu estimated wait vượt time budget, UI đưa CTA xem menu, rời flow hoặc hỏi nhân viên.
+- Không hiển thị thời điểm rời bàn của khách cụ thể như cam kết.
+
+### US-FOH-03 — Join/leave queue (MVP)
+
+Là khách, tôi muốn vào và rời hàng chờ rõ ràng để giữ quyền chủ động.
+
+**Acceptance criteria**
+
+- Join tạo queue code và estimated range.
+- Phone/email chỉ bắt buộc nếu tôi chọn notification.
+- Success screen có CTA `Rời hàng chờ`; thao tác rời có confirmation nhẹ và không bị ẩn.
+
+### US-FOH-04 — Staff quản lý queue (MVP)
+
+Là Host/Manager, tôi muốn thấy queue và mark called/seated/cancel để khách nhận trạng thái đúng.
+
+**Acceptance criteria**
+
+- Queue item hiển thị party size, time budget, created time và accessibility note nếu có.
+- Staff action được audit và không lộ phone/email ngoài quyền.
+- Stale/overdue item có trạng thái riêng, không tự coi là seated.
+
+## FOH Lite — Table QR
+
+### US-FOH-05 — Xác nhận đúng bàn (MVP)
+
+Là khách đang ngồi, tôi muốn scan QR và biết mình đang thao tác cho đúng bàn/session.
+
+**Acceptance criteria**
+
+- Landing screen hiển thị table label thân thiện và CTA xác nhận.
+- Token sai/hết hạn hiển thị recovery: scan lại hoặc gọi nhân viên.
+- Khách không xem được session/PII của bàn khác.
+
+### US-FOH-06 — Gọi thêm món (MVP)
+
+Là khách, tôi muốn chọn món thêm, note và gửi yêu cầu mà không cần gọi lớn nhân viên.
+
+**Acceptance criteria**
+
+- Menu có category, quantity, note và allergen field nếu dữ liệu hỗ trợ.
+- Confirmation hiển thị bàn, món, quantity và estimated range.
+- Submit thành công tạo trạng thái `Đã gửi/Chờ xác nhận`, không tự coi là đã phục vụ.
+
+### US-FOH-07 — Theo dõi và hủy request trùng (MVP)
+
+Là khách, tôi muốn biết request đã được tiếp nhận và tránh gửi trùng khi mạng chậm.
+
+**Acceptance criteria**
+
+- UI có loading/disabled state và idempotency cho retry.
+- Status gồm tối thiểu `Đã nhận`, `Đang chuẩn bị`, `Đã phục vụ`, `Từ chối/Cần nhân viên`.
+- Request có thể hủy trong thời gian policy cho phép; sau đó liên hệ nhân viên.
+
+### US-FOH-08 — Staff acknowledge và route (MVP)
+
+Là Server/Manager, tôi muốn xác nhận và chuyển tiếp QR request để hospitality vẫn do nhân viên kiểm soát.
+
+**Acceptance criteria**
+
+- Staff thấy table, item, quantity, note, created time và requested action.
+- Có thể accept/reject/route với reason khi reject.
+- Status change thông báo lại cho guest và ghi audit.
+
+### US-FOH-09 — Staff fallback và accessibility (MVP)
+
+Là khách không muốn/không thể dùng QR, tôi muốn vẫn nhận được hỗ trợ như bình thường.
+
+**Acceptance criteria**
+
+- Standy/table UI có CTA hoặc copy `Hỏi nhân viên`.
+- Form dùng visible labels, 44px touch target, body text ≥16px, status không chỉ dùng màu.
+- Không ép khách tải app, tạo tài khoản hoặc cung cấp dữ liệu không cần thiết.
+
 ## Story readiness checklist
 
 - [ ] Actor và scope branch rõ.

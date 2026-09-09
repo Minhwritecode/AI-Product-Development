@@ -4,6 +4,8 @@
 
 Luminex giúp doanh nghiệp F&B nhiều chi nhánh biến dòng vận hành từ FOH đến BOH thành dữ liệu có thể truy vết: bán gì, cần bao nhiêu, đã mua bao nhiêu, đã nhận bao nhiêu, chuyển đi đâu, còn lại bao nhiêu và thất thoát ở đâu.
 
+Trong bối cảnh nhà hàng ở trung tâm thành phố/phố đi bộ có nhiều khách quốc tế, discovery bổ sung hai moment FOH có tần suất cao: khách đứng trước cửa cần biết có nên chờ; khách đã ngồi cần gọi thêm mà không phải tìm nhân viên.
+
 ## Problem framing
 
 ### Problem statement
@@ -50,6 +52,15 @@ Doanh nghiệp F&B hiện thiếu một nguồn dữ liệu tập trung và nh�
 - Thiếu POS/recipe data khiến theoretical usage không tính được hoặc tính thủ công.
 - AI có thể nhập nhanh nhưng nếu tự ghi dữ liệu sẽ tạo rủi ro kiểm soát.
 
+### FOH QR pain points và cơ hội
+
+- Khách đến lúc cao điểm không biết còn bàn, queue dài bao nhiêu hoặc wait có phù hợp time budget.
+- Khách du lịch cần ngôn ngữ rõ, không muốn tải app/đăng ký trước khi biết tình hình.
+- Việc hiển thị thời gian rời bàn của khách hiện tại quá chính xác hoặc mang tính cá nhân sẽ gây mất privacy và tạo kỳ vọng sai; cần range + timestamp + confidence.
+- Khách đang ngồi muốn gọi thêm nhưng nhân viên đang phục vụ nhiều bàn; gọi lớn hoặc chờ lâu làm giảm cảm nhận hospitality.
+- QR tại bàn cần có xác nhận đúng bàn, trạng thái request, đường lui sang nhân viên và không biến thành kênh đặt món không kiểm soát.
+- Khách lớn tuổi hoặc không quen công nghệ vẫn phải được phục vụ bình thường; QR là lựa chọn bổ trợ.
+
 ## Opportunity framing
 
 ```text
@@ -83,6 +94,8 @@ Unreliable operational data
 | H3 | Branch request có status rõ giúp giảm thiếu hàng | Tỷ lệ request overdue và request qua kênh ngoài giảm |
 | H4 | AI onboarding hữu ích nếu user sửa được suggestion trước khi lưu | Thời gian tạo recipe và tỷ lệ accept/edit được đo |
 | H5 | Dashboard có drill-down giúp owner ra quyết định nhanh hơn | Thời gian trả lời 3 câu hỏi vận hành mẫu giảm |
+| H6 | Front-door QR minh bạch queue làm giảm câu hỏi lặp lại và queue abandonment do bất ngờ | Scan → availability → join/leave; khảo sát hiểu wait và tỷ lệ rời queue |
+| H7 | Table QR add-on có trạng thái rõ làm giảm thời gian tiếp nhận order thêm nhưng không làm giảm CSAT | Time-to-ack, duplicate request, staff confirmation và guest feedback |
 
 ## Discovery plan
 
@@ -115,6 +128,14 @@ Unreliable operational data
 - Hoàn thành được core workflow từ ingredient tới dashboard.
 - Không có stock mutation ngoài goods receipt, transfer, count/adjustment được cấp quyền.
 - AI suggestion chưa approve không làm thay đổi dữ liệu.
+
+### FOH Lite
+
+- Khách hiểu tình trạng bàn/estimated wait trong vòng 30 giây.
+- Front-door QR hỗ trợ ít nhất Vietnamese/English, không bắt buộc tải app.
+- Guest có thể rời queue và chuyển sang staff fallback dễ dàng.
+- Add-on request có trạng thái `đã nhận → đang xác nhận/chuẩn bị → đã phục vụ`.
+- Staff vẫn là người xác nhận request; QR không tạo promise về thời gian phục vụ ngoài dữ liệu có căn cứ.
 
 ### Business
 

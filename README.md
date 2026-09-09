@@ -5,8 +5,8 @@ Luminex là nền tảng quản trị vận hành nhà hàng từ Front-of-House
 ## Trạng thái dự án
 
 - Giai đoạn: Product Discovery → Product Definition.
-- MVP: Inventory, Purchasing, Goods Receipt, Branch Stock, Daily Count, Wastage, Dashboard và AI Assistance.
-- FOH: đã phân tích pain point và ranh giới tích hợp; chưa triển khai luồng đặt bàn, order, bếp/bar, billing trong MVP.
+- MVP: BOH Inventory, Purchasing, Goods Receipt, Branch Stock, Daily Count, Wastage, Dashboard và AI Assistance; cộng thêm FOH Lite QR.
+- FOH Lite: QR trước cửa để xem tình trạng bàn/xếp hàng và QR tại bàn để gọi thêm/hỗ trợ; chưa triển khai full reservation, billing, KDS.
 - AI: chỉ gợi ý/giải thích; mọi thay đổi dữ liệu phải được người dùng xem và duyệt.
 
 ## Đọc tài liệu theo thứ tự
@@ -18,6 +18,8 @@ Luminex là nền tảng quản trị vận hành nhà hàng từ Front-of-House
 5. [Feature Specifications](docs/05-feature-specifications.md)
 6. [Kiến trúc hệ thống](docs/architecture/overview.md)
 7. [Hướng dẫn setup](docs/setup/local-development.md)
+8. [Unified Product Vision](docs/09-unified-product-vision.md)
+9. [FOH QR Guest Experience](docs/10-foh-qr-guest-experience.md)
 
 Danh mục tài liệu nằm tại [docs/README.md](docs/README.md). Nguồn và cách xử lý mâu thuẫn được ghi tại [docs/00-source-synthesis.md](docs/00-source-synthesis.md).
 

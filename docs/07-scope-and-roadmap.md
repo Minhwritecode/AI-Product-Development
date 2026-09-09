@@ -1,6 +1,6 @@
 # Scope & Roadmap
 
-## Milestone 1 — Full BOH Inventory & Wastage MVP
+## Milestone 1 — Full BOH Inventory & Wastage MVP + FOH Lite QR
 
 ### Included
 
@@ -13,10 +13,12 @@
 - Dashboard.
 - Auth/RBAC/Audit.
 - AI Onboarding và AI Copilot ở chế độ suggestion/read-only nếu discovery xác nhận đủ data.
+- Front-door QR: availability, wait range, time budget, join/leave queue.
+- Table QR: add-on request, assistance request, staff acknowledgement/status.
 
 ### Exit
 
-Một user demo đi được toàn bộ core workflow; mutation được transaction/audit; dashboard trace được về record nguồn; AI chưa duyệt không thay đổi data.
+Một user demo đi được toàn bộ BOH workflow; guest đi được hai QR journey; mutation được transaction/audit; dashboard trace được về record nguồn; AI chưa duyệt không thay đổi data.
 
 ## Milestone 2 — Operational Accuracy & Controls
 
@@ -26,6 +28,7 @@ Một user demo đi được toàn bộ core workflow; mutation được transac
 - Stock history, expiry, batch/lot.
 - Daily Count/Wastage approval.
 - Basic audit viewer và exception alerts.
+- Queue/service-duration calibration dựa trên dữ liệu thực tế, không hứa hẹn thời gian tuyệt đối.
 
 ## Milestone 3 — POS & Recipe Integration
 
@@ -34,13 +37,14 @@ Một user demo đi được toàn bộ core workflow; mutation được transac
 - Recipe versioning.
 - Theoretical usage và variance tự động.
 - Cảnh báo variance vượt threshold.
+- Liên kết add-on sales từ FOH với recipe version và theoretical usage.
 
-## Milestone 4 — FOH operational visibility
+## Milestone 4 — Full FOH operational visibility
 
 - Item availability signal từ BOH tới FOH.
 - Kitchen/Bar shortage feedback.
 - Linking sales/service delays với ingredient availability.
-- Chưa bao gồm full reservation/order/billing trừ khi có product decision riêng.
+- Reservation, walk-in, table assignment, Kitchen/Bar và billing chỉ thêm khi có product decision riêng.
 
 ## Milestone 5+ — Advanced purchasing, AI và enterprise
 

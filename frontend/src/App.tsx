@@ -23,7 +23,7 @@ export default function App() {
         <p className="eyebrow">Product foundation · MVP</p>
         <h1>Inventory rõ ràng. Vận hành liền mạch.</h1>
         <p className="lede">
-          Skeleton giao diện cho hệ thống quản trị tồn kho, mua hàng, hao hụt và dữ liệu vận hành nhà hàng.
+          Skeleton giao diện cho hệ thống kết nối trải nghiệm FOH với tồn kho, mua hàng, hao hụt và dữ liệu vận hành nhà hàng.
         </p>
         <div className="status-card">
           <span className={`dot ${health?.status === 'ok' ? 'online' : ''}`} />
@@ -31,7 +31,16 @@ export default function App() {
         </div>
       </section>
       <section className="modules" aria-label="MVP modules">
-        {['Master Data', 'Purchase Order', 'Goods Receipt', 'Branch Stock', 'Daily Count', 'Dashboard + AI'].map((module) => (
+        {[
+          'Front-door QR',
+          'Table QR + Add-on',
+          'Master Data',
+          'Purchase Order',
+          'Goods Receipt',
+          'Branch Stock',
+          'Daily Count',
+          'Dashboard + AI'
+        ].map((module) => (
           <article key={module} className="module-card">
             <span className="module-index">MVP</span>
             <h2>{module}</h2>

@@ -43,3 +43,5 @@ Client gửi `Idempotency-Key` cho goods receipt confirm, shipment confirm và f
 - ISO-8601 UTC trong API.
 - Decimal quantities và money không serialize bằng binary float nếu có thể gây sai số.
 - Unit luôn gửi cùng quantity.
+- Guest QR endpoints must return only session-scoped data; signed token failures use a generic not-found/expired response without leaking table/session details.
+- Guest status responses include `as_of`, status text key and recovery action metadata; never rely on color alone.

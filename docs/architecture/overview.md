@@ -3,30 +3,34 @@
 ## Context
 
 ```text
-Browser (React/Vite)
+Guest Browser / Staff Browser (React/Vite)
         │ REST/JSON + JWT
         ▼
 Nginx (optional reverse proxy)
         │
         ▼
 Backend API (Node.js/TypeScript)
-   ┌────┼────────────┐
-   ▼    ▼            ▼
-PostgreSQL Redis   AI Adapter
-   │    │            │
-   └────┴──────┬─────┘
+   ┌────┼──────────────┐
+   ▼    ▼              ▼
+PostgreSQL Redis     AI Adapter
+   │    │              │
+   └────┴──────┬───────┘
                 ▼
+        FOH Queue/Request Edge
+                │
          External LLM (optional)
 ```
 
 ## Responsibilities
 
 - Frontend: forms, table/dashboard, permission-aware UI, AI review flow.
+- Guest frontend: no-login QR flows, privacy-safe status, multilingual copy, staff fallback.
 - Backend: auth, RBAC, branch scope, validation, business rules, transactions, audit, AI orchestration.
 - PostgreSQL: source of truth for operational data and audit.
 - Redis: cache dashboard aggregates/rate limit/session support when enabled.
 - AI adapter: provider abstraction, structured output validation, redaction, timeout/fallback.
 - Nginx: reverse proxy in production-like deployment; optional in local dev.
+- FOH Queue/Request Edge: validates signed QR/table token, rate-limits guest requests and exposes only session-scoped data.
 
 ## Security boundaries
 
@@ -34,6 +38,7 @@ PostgreSQL Redis   AI Adapter
 2. Backend re-check role/branch scope trên mỗi mutation/read sensitive.
 3. AI chỉ nhận authorized projection, không nhận direct DB credentials.
 4. Secrets chỉ từ environment/secret manager, không commit.
+5. Guest QR token không chứa PII; queue/table session chỉ được đọc trong phạm vi token và policy.
 
 ## Deployment baseline
 

@@ -13,6 +13,8 @@ Tài liệu này phân biệt yêu cầu của người dùng với nội dung n
 | `fnb-inventory-wastage-idea-brief.md` | Problem, persona, outcomes, scope, risks, questions | Nguồn chính cho Product Discovery và PRD |
 | `restaurant-management-system-specification.md` | FOH workflow, quyền hạn, audit, inventory/recipe context, future integration | Dùng để nhận diện pain point FOH và bối cảnh tích hợp; không đưa toàn bộ restaurant suite vào MVP |
 
+Các file nguồn được lưu nguyên bản trong [docs/source/](source/README.md).
+
 ## 3. Yêu cầu người dùng đã thực hiện
 
 - Kết hợp nội dung các file.
@@ -24,10 +26,15 @@ Tài liệu này phân biệt yêu cầu của người dùng với nội dung n
 
 ## 4. Kết luận phạm vi
 
-Luminex có tầm nhìn end-to-end FOH → BOH, nhưng MVP triển khai trước là BOH Inventory & Wastage Management. FOH được mô hình hóa ở hai lớp:
+Luminex có tầm nhìn end-to-end FOH → BOH. MVP triển khai BOH Inventory & Wastage Management làm lõi và bổ sung FOH Lite QR cho hai moment có giá trị cao:
+
+- trước cửa: xem tình trạng bàn, estimated wait và join/leave queue;
+- tại bàn: xem menu, gọi thêm và request assistance.
+
+Các FOH workflow đầy đủ vẫn được mô hình hóa ở hai lớp:
 
 1. `Pain point/context`: các vấn đề vận hành từ reservation, seating, order, kitchen/bar, serving, billing và table readiness.
-2. `Integration boundary`: dữ liệu POS/order/recipe có thể cung cấp `sold_qty_theory` cho BOH trong milestone sau.
+2. `Integration boundary`: dữ liệu POS/order/recipe có thể cung cấp `sold_qty_theory` cho BOH trong milestone sau; QR request phải được staff xác nhận trước khi đi vào operational workflow.
 
 Điều này giải quyết mâu thuẫn giữa tên sản phẩm “FOH đến BOH” và scope trong vision/idea brief vốn loại trừ FOH khỏi MVP.
 

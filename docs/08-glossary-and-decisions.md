@@ -17,6 +17,12 @@
 | Theoretical sold | Lượng bán theo sales/POS × recipe; có thể chưa có trong MVP |
 | Standard price | Giá chuẩn dùng valuation cơ bản |
 | Human approval | Người dùng xem/sửa/duyệt trước khi AI result được lưu |
+| FOH Lite | Lớp FOH giới hạn trong MVP: front-door QR và table QR |
+| Front-door QR | QR trước cửa để xem availability, estimated wait và queue |
+| Table QR | QR gắn tại bàn để xem menu, gọi thêm hoặc request assistance |
+| Time budget | Khoảng thời gian khách có thể chờ trước khi quyết định join queue |
+| Guest session | Session không cần account, gắn với queue hoặc signed table token |
+| Staff fallback | Đường chuyển sang nhân viên khi khách không dùng/không thể dùng QR |
 
 ## Decisions
 
@@ -30,6 +36,9 @@
 | D-006 | VND + Vietnamese UI mặc định | Phù hợp context nguồn; mở rộng sau | Accepted |
 | D-007 | TypeScript + React + Node skeleton | Một ngôn ngữ xuyên suốt, onboarding đơn giản | Proposed |
 | D-008 | Nginx optional local production-like proxy | Thể hiện boundary scale; không cần trong dev cơ bản | Proposed |
+| D-009 | Bổ sung FOH Lite QR vào MVP, không mở full FOH suite | Giải quyết hai pain point có tần suất cao mà vẫn kiểm soát scope | Accepted |
+| D-010 | Wait hiển thị range + timestamp, không cam kết thời điểm rời bàn cụ thể | Tránh false precision, bảo vệ privacy và kỳ vọng khách | Accepted |
+| D-011 | QR request phải được staff acknowledge/route | Giữ hospitality, chống request mồ côi và không tự tạo payment/stock mutation | Accepted |
 
 ## Open decision template
 

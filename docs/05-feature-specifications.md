@@ -285,6 +285,119 @@ Idempotency-Key: <external-batch-id>
 
 Mapping cần `external_item_code`, `menu_item_id`, `recipe_version_id`, `sold_at`, `quantity`, `branch_id`. Unmapped item được quarantine/report, không tự trừ stock.
 
+## F-10 Front-door QR Availability & Queue
+
+### Goal
+
+Giảm bất định cho khách trước cửa nhà hàng đông, đặc biệt khách du lịch không có account/app và có time budget rõ.
+
+### Flow
+
+```text
+Scan standy QR
+  → Choose language
+  → Party size + time budget
+  → Availability/wait range + as_of
+  → View menu / Join queue / Ask staff
+  → Queue code + notification option
+  → Called / Seated / Left / Expired
+```
+
+### APIs
+
+```text
+GET  /api/v1/guest/front-door/status?location_id=
+POST /api/v1/guest/queues
+GET  /api/v1/guest/queues/:id
+POST /api/v1/guest/queues/:id/leave
+POST /api/v1/foh/queues/:id/call
+POST /api/v1/foh/queues/:id/seat
+POST /api/v1/foh/queues/:id/cancel
+```
+
+### Response contract
+
+```json
+{
+  "status": "WAITING",
+  "estimatedWait": {"min": 20, "max": 35, "unit": "minutes"},
+  "queueSize": 6,
+  "asOf": "2026-09-09T04:30:00Z",
+  "confidence": "MEDIUM",
+  "limitations": ["estimate uses recent service duration"]
+}
+```
+
+### Product rules
+
+- Estimate is a range, not a promise; never expose exact departure of another guest.
+- If data stale beyond configured TTL, show stale state and staff fallback.
+- Queue join requires party size/time budget; contact is conditional on notifications.
+- Duplicate join/retry uses idempotency key.
+- Guest can leave queue; no dark pattern or forced account creation.
+- Host console can override status only with reason and audit.
+
+### UX details
+
+- Mobile-first, language choice before long copy.
+- One primary CTA per state; secondary actions remain visible.
+- Body text ≥16px, touch target ≥44px, visible labels and accessible status announcement.
+- Empty/error/queue-full/stale states must provide next action.
+
+## F-11 Table QR Add-on & Assistance
+
+### Goal
+
+Cho phép guest gọi thêm hoặc cần hỗ trợ mà không phải chờ tìm nhân viên, trong khi staff vẫn xác nhận và điều phối request.
+
+### Flow
+
+```text
+Scan signed table QR
+  → Confirm table/session
+  → View menu / Add-on / Assistance
+  → Review cart + note/allergen
+  → Submit with idempotency key
+  → Staff acknowledge → route → prepare → serve/recover
+```
+
+### APIs
+
+```text
+GET  /api/v1/guest/table-sessions/:token
+GET  /api/v1/guest/table-sessions/:id/menu
+POST /api/v1/guest/table-sessions/:id/add-on-requests
+POST /api/v1/guest/table-sessions/:id/assistance-requests
+GET  /api/v1/guest/requests/:id
+POST /api/v1/foh/requests/:id/acknowledge
+POST /api/v1/foh/requests/:id/route
+POST /api/v1/foh/requests/:id/reject
+POST /api/v1/foh/requests/:id/complete
+```
+
+### Request state machine
+
+```text
+SUBMITTED → ACKNOWLEDGED → ROUTED → PREPARING → SERVED
+     └──────────────→ REJECTED / NEEDS_STAFF
+```
+
+### Security and integrity
+
+- Token signed, short-lived/rotatable, không encode PII.
+- Wrong/expired token không lộ menu/session data nhạy cảm.
+- Backend re-check table/session and item availability.
+- Retry same idempotency key returns same request, không tạo duplicate.
+- Request không tạo payment, bill close hoặc stock mutation trực tiếp.
+- Khi item unavailable, guest nhận message + alternative/staff help; không silently remove item.
+
+### Hospitality details
+
+- Confirmation copy phải nói “Nhân viên đã nhận yêu cầu” thay vì hứa “sẽ ra ngay”.
+- Hiển thị time range và timestamp nếu có estimate.
+- Có quick action gọi nhân viên, kể cả trong khi request đang pending.
+- Không yêu cầu khách mô tả allergy trong một note tự do duy nhất; dùng field riêng + warning.
+
 ## Cross-cutting UI requirements
 
 - Responsive cho desktop/tablet ở warehouse/branch.
@@ -292,3 +405,4 @@ Mapping cần `external_item_code`, `menu_item_id`, `recipe_version_id`, `sold_a
 - Confirmation cho stock mutation và AI approval.
 - Hiển thị status badge, actor, timestamp, source record.
 - Không dùng màu làm tín hiệu duy nhất; low stock/wastage cần text/icon.
+- FOH QR có staff fallback, privacy-safe status và accessible form; QR là lựa chọn bổ trợ cho hospitality, không phải rào cản.

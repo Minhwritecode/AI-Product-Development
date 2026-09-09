@@ -13,6 +13,8 @@
 | 06 | [FOH/BOH Pain Points](06-foh-boh-pain-points.md) | Bản đồ pain point và ranh giới tích hợp |
 | 07 | [Scope & Roadmap](07-scope-and-roadmap.md) | MVP, các milestone sau và quyết định out-of-scope |
 | 08 | [Glossary & Decisions](08-glossary-and-decisions.md) | Thuật ngữ và quyết định sản phẩm |
+| 09 | [Unified Product Vision](09-unified-product-vision.md) | Hợp nhất FOH Lite và BOH Core |
+| 10 | [FOH QR Guest Experience](10-foh-qr-guest-experience.md) | Đặc tả QR trước cửa và tại bàn |
 
 ## Tài liệu kỹ thuật
 
@@ -22,6 +24,11 @@
 - [Local Development Setup](setup/local-development.md)
 - [Testing Strategy](setup/testing-strategy.md)
 - [ADR-0001: BOH-first MVP](adr/0001-boh-first-mvp.md)
+- [ADR-0002: FOH Lite QR edge](adr/0002-foh-lite-qr-edge.md)
+
+## Nguồn đầu vào
+
+Các bản spec, idea brief và product vision đã được đưa vào [docs/source/](source/README.md) để repository tự chứa đủ context của dự án.
 
 ## Nguyên tắc đọc
 

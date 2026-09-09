@@ -34,6 +34,13 @@ Yêu cầu được phân rã theo capability, actor, business rule, data depend
 | FR-AU-01 | Login and RBAC | MUST | All | User |
 | FR-AU-02 | Branch/data scope | MUST | All | Role, Branch |
 | FR-AU-03 | Audit log | MUST | System | Mutation events |
+| FR-FOH-01 | Front-door QR availability/queue view | MUST | Guest/Staff | Table status, queue |
+| FR-FOH-02 | Join/leave queue with time budget | MUST | Guest/Host | Queue policy |
+| FR-FOH-03 | Multilingual, no-login guest entry | MUST | Guest | Content/localization |
+| FR-FOH-04 | Signed table QR session | MUST | Guest/Staff | Table/session |
+| FR-FOH-05 | Add-on order request + assistance | MUST | Guest | Menu, table session |
+| FR-FOH-06 | Staff acknowledge/route QR request | MUST | Host/Server/Manager | Request status |
+| FR-FOH-07 | Guest privacy and staff fallback | MUST | System/Staff | Auth/session policy |
 
 ## 3. Business rules
 
@@ -53,6 +60,12 @@ Yêu cầu được phân rã theo capability, actor, business rule, data depend
 | BR-12 | AI output là suggestion và không mutate DB trước approval. |
 | BR-13 | Câu hỏi AI phải lọc theo quyền hiện tại của user. |
 | BR-14 | FOH data/POS integration không được coi là source-of-truth nếu chưa có mapping/version. |
+| BR-15 | Front-door QR hiển thị estimated wait dạng range + `as_of`; không hiển thị thời điểm rời bàn của khách cụ thể như cam kết. |
+| BR-16 | Join queue cần party size và time budget; contact chỉ bắt buộc cho notification. |
+| BR-17 | Queue status phải có leave/cancel rõ ràng và không dùng dark pattern. |
+| BR-18 | Table QR phải dùng signed token, xác nhận đúng bàn và không lộ PII của khách khác. |
+| BR-19 | Add-on/assistance request chỉ trở thành operational request sau khi staff acknowledge/route. |
+| BR-20 | QR flow luôn có staff fallback cho khách lớn tuổi, accessibility needs hoặc không muốn dùng điện thoại. |
 
 ## 4. Use-case analysis
 
@@ -99,6 +112,26 @@ Failure paths: duplicate date/ingredient, unit mismatch, missing reason, negativ
 
 Failure paths: timeout, malformed output, unknown ingredient, low confidence, user cancel.
 
+### UC-05: Front-door availability and queue
+
+1. Guest scan standy QR và chọn language.
+2. Guest nhập party size, time budget và optional accessibility need.
+3. Hệ thống trả availability/estimated wait range/queue state với timestamp.
+4. Guest join queue hoặc rời flow; nếu join thì nhận queue code và notification option.
+5. Host thấy queue item, gọi/mark seated/cancel theo policy.
+
+Failure paths: stale availability, queue full, network error, wait vượt time budget, duplicate join.
+
+### UC-06: Table QR add-on request
+
+1. Guest scan signed table QR.
+2. Hệ thống hiển thị đúng table/session context và menu.
+3. Guest chọn item, quantity, note/allergen và submit.
+4. Staff acknowledge, accept/reject/route; guest thấy status.
+5. Khi hoàn tất, staff mark served hoặc cần hỗ trợ thêm.
+
+Failure paths: invalid/expired token, wrong table confirmation, item unavailable, duplicate submit, timeout, staff reject.
+
 ## 5. Dependency graph
 
 ```text
@@ -112,6 +145,8 @@ Auth/User/Role
 Master Data + Recipe ──> AI Onboarding
 All authorized data ──> AI Copilot
 FOH/POS sales ──(future)─> sold_qty_theory
+Front-door QR ──> Queue/Guest Session ──> Host/FOH Console
+Table QR ──> Add-on/Assistance Request ──> Staff Acknowledge ──> BOH/POS boundary
 ```
 
 ## 6. MoSCoW decision
@@ -142,6 +177,7 @@ FOH transaction screens, customer payment, KDS/bar, payroll, accounting, supplie
 | Business visibility | 6.7 | US-DB-01..03 | F-07 |
 | Safe AI assistance | 6.8 | US-AI-01..04 | F-08 |
 | FOH → BOH foundation | goals, data principles | US-INT-01..02 | F-09 |
+| Guest-facing hospitality | 6.9, 6.10 | US-FOH-01..08 | F-10, F-11 |
 
 ## 8. Risks and mitigations
 
