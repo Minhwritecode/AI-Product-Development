@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+          "inverse-surface": "#283044",
+          "on-surface-variant": "#404944",
+          "outline-variant": "#bfc9c3",
+          "surface-dim": "#d2d9f4",
+          "primary": "#003527",
+          "inverse-on-surface": "#eef0ff",
+          "background": "#faf8ff",
+          "on-tertiary-container": "#5db9ff",
+          "on-error-container": "#93000a",
+          "on-primary-fixed-variant": "#0b513d",
+          "primary-fixed-dim": "#95d3ba",
+          "on-primary-container": "#80bea6",
+          "surface-container-low": "#f2f3ff",
+          "surface-container-high": "#e2e7ff",
+          "on-secondary-fixed": "#2f1500",
+          "tertiary": "#00314e",
+          "on-primary": "#ffffff",
+          "on-secondary": "#ffffff",
+          "surface-tint": "#2b6954",
+          "surface-container": "#eaedff",
+          "on-error": "#ffffff",
+          "outline": "#707974",
+          "secondary-fixed-dim": "#ffb77d",
+          "tertiary-fixed-dim": "#93ccff",
+          "on-background": "#131b2e",
+          "secondary-fixed": "#ffdcc3",
+          "surface": "#faf8ff",
+          "inverse-primary": "#95d3ba",
+          "surface-bright": "#faf8ff",
+          "on-tertiary": "#ffffff",
+          "secondary-container": "#fe932c",
+          "on-tertiary-fixed": "#001d31",
+          "primary-fixed": "#b0f0d6",
+          "on-secondary-fixed-variant": "#6e3900",
+          "primary-container": "#064e3b",
+          "on-surface": "#131b2e",
+          "error": "#ba1a1a",
+          "on-tertiary-fixed-variant": "#004b73",
+          "error-container": "#ffdad6",
+          "on-secondary-container": "#663500",
+          "tertiary-container": "#004870",
+          "tertiary-fixed": "#cce5ff",
+          "secondary": "#904d00",
+          "surface-container-highest": "#dae2fd",
+          "surface-variant": "#dae2fd",
+          "on-primary-fixed": "#002117",
+          "surface-container-lowest": "#ffffff"
+        },
+        "borderRadius": {
+          "DEFAULT": "0.25rem",
+          "lg": "0.5rem",
+          "xl": "0.75rem",
+          "full": "9999px"
+        },
+        "spacing": {
+          "space-xl": "2rem",
+          "space-sm": "0.5rem",
+          "margin-mobile": "0.75rem",
+          "gutter-mobile": "0.75rem",
+          "space-md": "0.75rem",
+          "gutter": "1rem",
+          "margin": "1rem",
+          "space-xs": "0.25rem",
+          "gutter-desktop": "1.5rem",
+          "margin-desktop": "2rem",
+          "space-lg": "1.25rem"
+        },
+        "fontFamily": {
+          "label-code": [
+            "JetBrains Mono"
+          ],
+          "headline-lg": [
+            "Plus Jakarta Sans"
+          ],
+          "body-lg": [
+            "Plus Jakarta Sans"
+          ],
+          "display-lg-mobile": [
+            "Plus Jakarta Sans"
+          ],
+          "headline-lg-mobile": [
+            "Plus Jakarta Sans"
+          ],
+          "headline-sm": [
+            "Plus Jakarta Sans"
+          ],
+          "display-lg": [
+            "Plus Jakarta Sans"
+          ],
+          "label-numeric": [
+            "JetBrains Mono"
+          ],
+          "body-md": [
+            "Plus Jakarta Sans"
+          ],
+          "headline-md": [
+            "Plus Jakarta Sans"
+          ],
+          "body-sm": [
+            "Plus Jakarta Sans"
+          ],
+          "label-ui": [
+            "Plus Jakarta Sans"
+          ]
+        },
+        "fontSize": {
+          "label-code": [
+            "11px",
+            {
+              "lineHeight": "14px",
+              "letterSpacing": "0.05em",
+              "fontWeight": "600"
+            }
+          ],
+          "headline-lg": [
+            "28px",
+            {
+              "lineHeight": "36px",
+              "letterSpacing": "-0.01em",
+              "fontWeight": "600"
+            }
+          ],
+          "body-lg": [
+            "16px",
+            {
+              "lineHeight": "24px",
+              "fontWeight": "400"
+            }
+          ],
+          "display-lg-mobile": [
+            "30px",
+            {
+              "lineHeight": "38px",
+              "letterSpacing": "-0.015em",
+              "fontWeight": "700"
+            }
+          ],
+          "headline-lg-mobile": [
+            "22px",
+            {
+              "lineHeight": "28px",
+              "letterSpacing": "-0.01em",
+              "fontWeight": "600"
+            }
+          ],
+          "headline-sm": [
+            "16px",
+            {
+              "lineHeight": "24px",
+              "fontWeight": "600"
+            }
+          ],
+          "display-lg": [
+            "40px",
+            {
+              "lineHeight": "48px",
+              "letterSpacing": "-0.02em",
+              "fontWeight": "700"
+            }
+          ],
+          "label-numeric": [
+            "14px",
+            {
+              "lineHeight": "20px",
+              "letterSpacing": "0.02em",
+              "fontWeight": "500"
+            }
+          ],
+          "body-md": [
+            "14px",
+            {
+              "lineHeight": "20px",
+              "fontWeight": "400"
+            }
+          ],
+          "headline-md": [
+            "20px",
+            {
+              "lineHeight": "28px",
+              "letterSpacing": "-0.005em",
+              "fontWeight": "600"
+            }
+          ],
+          "body-sm": [
+            "12px",
+            {
+              "lineHeight": "16px",
+              "fontWeight": "400"
+            }
+          ],
+          "label-ui": [
+            "13px",
+            {
+              "lineHeight": "16px",
+              "letterSpacing": "0.01em",
+              "fontWeight": "600"
+            }
+          ]
+        }
+      }
+    }
+  };</script></head><body class="bg-background font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-screen w-72 bg-surface-container-low z-50 flex flex-col shadow-[0_1px_8px_rgba(6,78,59,0.06)]"><div class="h-16 px-space-lg flex items-center gap-space-md bg-surface-container-lowest/80 backdrop-blur-sm"><div class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center text-on-primary shadow-sm"><span class="material-symbols-outlined text-[22px]">soup_kitchen</span></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-primary-container tracking-tight">LUMINEX F&amp;B</span><span class="font-label-code text-label-code text-on-surface-variant uppercase tracking-widest">OPERATING SYSTEM</span></div></div><div class="flex-1 overflow-y-auto px-space-md py-space-md space-y-space-lg"><nav class="space-y-space-xs" data-active-classes="bg-primary-container text-on-primary font-headline-sm rounded-lg"><div class="px-space-md py-1 font-label-code text-label-code text-on-surface-variant uppercase tracking-wider">1. TỔNG QUAN</div><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="dashboard-kpis" href="#">Dashboard &amp; KPIs</a></nav><nav class="space-y-space-xs" data-active-classes="bg-primary-container text-on-primary font-headline-sm rounded-lg"><div class="px-space-md py-1 font-label-code text-label-code text-on-surface-variant uppercase tracking-wider">2. MUA HÀNG &amp; KHO TỔNG</div><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="don-mua-po" href="#">Đơn mua PO</a><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="nhan-hang-gr" href="#">Nhận hàng GR</a><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="ton-kho-trung-tam" href="#">Tồn kho trung tâm</a></nav><nav class="space-y-space-xs" data-active-classes="bg-primary-container text-on-primary font-headline-sm rounded-lg"><div class="px-space-md py-1 font-label-code text-label-code text-on-surface-variant uppercase tracking-wider">3. CHI NHÁNH &amp; KIỂM KÊ</div><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="chuyen-kho-chi-nhanh" href="#">Chuyển kho chi nhánh</a><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="kiem-ke-daily-count" href="#">Kiểm kê Daily Count</a><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="bao-cao-hao-hut" href="#">Báo cáo hao hụt</a></nav><nav class="space-y-space-xs" data-active-classes="bg-primary-container text-on-primary font-headline-sm rounded-lg"><div class="px-space-md py-1 font-label-code text-label-code text-on-surface-variant uppercase tracking-wider">4. SẢN PHẨM &amp; CÔNG THỨC</div><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="master-data-menu-dinh-muc-bom" href="#">Master Data Menu &amp; Định mức BOM</a><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="ai-recipe-studio" href="#">AI Recipe Studio</a></nav><nav class="space-y-space-xs" data-active-classes="bg-primary-container text-on-primary font-headline-sm rounded-lg"><div class="px-space-md py-1 font-label-code text-label-code text-on-surface-variant uppercase tracking-wider">5. VẬN HÀNH FOH</div><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="so-do-ban-trang-thai-don" href="#">Sơ đồ bàn &amp; Trạng thái dọn</a><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="man-hinh-bep-kds-bar-bds" href="#">Màn hình Bếp KDS / Bar BDS</a><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="hang-cho-don-khach" href="#">Hàng chờ đón khách</a><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="thu-ngan-hoa-don" href="#">Thu ngân &amp; Hóa đơn</a><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="cau-hinh-qr-order" href="#">Cấu hình QR Order</a></nav><nav class="space-y-space-xs" data-active-classes="bg-primary-container text-on-primary font-headline-sm rounded-lg"><div class="px-space-md py-1 font-label-code text-label-code text-on-surface-variant uppercase tracking-wider">6. BÁO CÁO &amp; CÀI ĐẶT</div><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="doi-soat-ca-pos" href="#">Đối soát ca &amp; POS</a><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="nhat-ky-audit-log" href="#">Nhật ký Audit Log</a><a class="block px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="phan-quyen-vai-tro-rbac" href="#">Phân quyền vai trò &amp; RBAC</a></nav></div><div class="p-space-md bg-surface-container-lowest/80 backdrop-blur-sm"><div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-low"><div class="flex items-center gap-2"><span class="inline-flex w-2 h-2 rounded-full bg-primary-container animate-pulse"></span><span class="font-label-code text-label-code text-on-surface-variant uppercase">POS Sync Engine</span></div><span class="font-label-code text-label-code text-on-primary-fixed-variant">99.98%</span></div></div></aside><div class="pl-72 min-h-screen flex flex-col"><header class="fixed top-0 left-72 right-0 h-16 bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(6,78,59,0.05)] z-40 flex items-center justify-between px-margin-desktop"><div class="flex items-center gap-space-lg"><div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface"><span class="material-symbols-outlined text-primary-container text-[20px]">storefront</span><span class="font-headline-sm text-headline-sm text-primary-container">Flagship Q1 - Hồ Chí Minh</span><span class="material-symbols-outlined text-on-surface-variant text-[18px]">expand_more</span></div><div class="hidden xl:flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant"><span class="w-2 h-2 rounded-full bg-primary-container"></span><span class="font-label-code text-label-code">Live Sync Active</span></div></div><div class="flex items-center gap-space-lg"><button aria-label="Thông báo" class="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-secondary-container ring-2 ring-surface"></span></button><div class="h-6 w-px bg-surface-container-highest"></div><div class="flex items-center gap-3"><div class="flex flex-col text-right"><span class="font-headline-sm text-headline-sm text-on-surface">Trần Minh Hoàng</span><span class="font-body-sm text-body-sm text-on-surface-variant">Operations Manager</span></div><img alt="Trần Minh Hoàng Avatar" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1U9uZrRIiCNwiqkWsqPH3NArbLedmnCkKm_P551cC3Nu5l7WAVC0Y05so4F8eXzjcptFrYcxQq6DfuJxrkDQG_aJsV-b5qRm-FDbhq8IgAXGQsjIMQDMQMHC_J7x2Zz6OF6qYRx9xwIMjUxEjK86doFihlw1MxELpXiVnCh1iAF9otf_6Lebehca6mHTYNokLULOPeLB4c97YYI3a-uEzVbkof50T8dIbydYq0bVK01Q70wVRC0zqpStLhc"/></div></div></header><main class="w-full pt-16 px-margin-desktop py-space-xl flex-1"><div class="flex flex-col w-full">
+<!-- System Status Banner -->
+<div class="w-full bg-surface-container-low rounded-xl p-space-md shadow-sm mb-space-lg flex flex-wrap items-center justify-between gap-space-md">
+<div class="flex flex-wrap items-center gap-space-lg">
+<div class="flex items-center gap-2">
+<span class="relative flex h-3 w-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-container opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-primary-container"></span>
+</span>
+<span class="font-headline-sm text-headline-sm text-primary-container">Cổng QR Khách hàng: ĐANG MỞ (OPEN)</span>
+</div>
+<div class="h-4 w-px bg-outline-variant hidden sm:block"></div>
+<div class="flex items-center gap-1.5 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">update</span>
+<span class="font-body-sm text-body-sm">Thời gian làm mới Token: <span class="font-label-code text-label-code text-on-surface font-bold">Tự động mỗi 12h</span></span>
+</div>
+<div class="h-4 w-px bg-outline-variant hidden sm:block"></div>
+<div class="flex items-center gap-1.5 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px] text-primary-container">table_restaurant</span>
+<span class="font-body-sm text-body-sm">Bàn kích hoạt QR: <span class="font-label-code text-label-code text-primary-container font-bold">42/42</span> bàn</span>
+</div>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="font-label-code text-label-code text-on-surface-variant bg-surface-container-lowest px-2.5 py-1 rounded">SEC-LEVEL: HMAC-SHA256</span>
+<button class="flex items-center gap-1.5 bg-surface-container-high hover:bg-surface-container-highest px-3 py-1.5 rounded-lg text-on-surface font-label-ui text-label-ui transition-colors">
+<span class="material-symbols-outlined text-[16px]">sync</span>
+        Đồng bộ POS
+      </button>
+</div>
+</div>
+<!-- Header & Tab Navigation -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-space-xl">
+<div>
+<div class="flex items-center gap-2 text-on-surface-variant font-label-code text-label-code uppercase tracking-widest mb-1">
+<span>FOH Operating System</span>
+<span>/</span>
+<span class="text-primary-container font-bold">PRD 6.9 • 6.10 • 6.11</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface">Cấu Hình Trải Nghiệm QR FOH &amp; Mã Bàn</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Điều phối dòng khách tự phục vụ, xác thực mã bàn mật mã học và phân luồng order tức thì.</p>
+</div>
+<!-- Mode Tabs -->
+<div class="flex items-center p-1 bg-surface-container-low rounded-xl shadow-sm">
+<button class="px-3.5 py-2 rounded-lg bg-primary-container text-on-primary font-label-ui text-label-ui shadow-sm flex items-center gap-1.5 transition-all">
+<span class="material-symbols-outlined text-[18px]">qr_code_scanner</span>
+        1. Front-Door &amp; Mã Bàn
+      </button>
+<button class="px-3.5 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-ui text-label-ui flex items-center gap-1.5 transition-all">
+<span class="material-symbols-outlined text-[18px]">token</span>
+        2. Quản Lý Token Khoá
+      </button>
+<button class="px-3.5 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-ui text-label-ui flex items-center gap-1.5 transition-all">
+<span class="material-symbols-outlined text-[18px]">timelapse</span>
+        3. Hàng Chờ &amp; Time Budget
+      </button>
+</div>
+</div>
+<!-- 3-Column Interactive Workspace -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg items-start">
+<!-- COL 1: Front-Door Standee QR (Span 3) -->
+<div class="xl:col-span-3 flex flex-col gap-space-md">
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm">
+<div class="flex items-center justify-between mb-space-md">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container">door_front</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Front-Door QR</h2>
+</div>
+<span class="font-label-code text-label-code bg-surface-container text-on-surface-variant px-2 py-0.5 rounded">F-10 STANDEE</span>
+</div>
+<!-- Standee Realistic Mockup Preview -->
+<div class="relative bg-surface-container-low rounded-xl p-space-md flex flex-col items-center justify-center text-center shadow-inner overflow-hidden mb-space-md">
+<div class="absolute -top-10 -right-10 w-28 h-28 bg-primary-fixed/20 rounded-full blur-2xl"></div>
+<!-- Standee Wood Frame Mockup -->
+<div class="w-48 bg-background p-4 rounded-xl shadow-md flex flex-col items-center">
+<div class="flex items-center gap-1 mb-2">
+<span class="material-symbols-outlined text-[16px] text-primary-container">soup_kitchen</span>
+<span class="font-headline-sm text-[11px] text-primary-container tracking-wider">LUMINEX F&amp;B</span>
+</div>
+<p class="font-headline-sm text-[12px] text-on-surface mb-2">QUÉT LẤY SỐ BÀN &amp; ĐẶT MÓN</p>
+<!-- Real High-Precision SVG QR -->
+<div class="p-2 bg-surface-container-lowest rounded-lg shadow-sm mb-2">
+<svg class="w-28 h-28 text-on-surface" fill="currentColor" viewbox="0 0 100 100">
+<!-- Target corners -->
+<rect height="30" rx="3" width="30" x="0" y="0"></rect>
+<rect fill="#faf8ff" height="20" width="20" x="5" y="5"></rect>
+<rect height="12" width="12" x="9" y="9"></rect>
+<rect height="30" rx="3" width="30" x="70" y="0"></rect>
+<rect fill="#faf8ff" height="20" width="20" x="75" y="5"></rect>
+<rect height="12" width="12" x="79" y="9"></rect>
+<rect height="30" rx="3" width="30" x="0" y="70"></rect>
+<rect fill="#faf8ff" height="20" width="20" x="5" y="75"></rect>
+<rect height="12" width="12" x="9" y="79"></rect>
+<!-- Stylized data bits -->
+<rect height="6" width="6" x="36" y="6"></rect>
+<rect height="12" width="6" x="46" y="10"></rect>
+<rect height="6" width="6" x="56" y="6"></rect>
+<rect height="6" width="8" x="36" y="24"></rect>
+<rect height="6" width="14" x="50" y="24"></rect>
+<rect height="6" width="14" x="10" y="38"></rect>
+<rect height="10" width="10" x="30" y="36"></rect>
+<rect height="8" width="8" x="46" y="42"></rect>
+<rect height="6" width="12" x="62" y="36"></rect>
+<rect height="8" width="14" x="80" y="38"></rect>
+<rect height="8" width="8" x="6" y="52"></rect>
+<rect height="6" width="12" x="22" y="52"></rect>
+<rect height="8" width="20" x="40" y="56"></rect>
+<rect height="12" width="8" x="68" y="50"></rect>
+<rect height="8" width="10" x="84" y="54"></rect>
+<rect height="16" width="6" x="36" y="72"></rect>
+<rect height="6" width="12" x="48" y="70"></rect>
+<rect height="14" width="10" x="66" y="74"></rect>
+<rect height="6" width="12" x="82" y="72"></rect>
+<rect height="10" width="12" x="48" y="84"></rect>
+</svg>
+</div>
+<span class="font-label-code text-[9px] text-on-surface-variant">TABLE-GATE-Q1 #001</span>
+<span class="font-body-sm text-[10px] text-on-surface-variant italic">Scan for Host Queue &amp; Menu</span>
+</div>
+<div class="mt-space-sm flex gap-2">
+<button class="bg-surface-container-lowest hover:bg-surface-container-high text-on-surface font-label-ui text-label-ui px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[16px]">download</span>
+              Vector SVG
+            </button>
+<button class="bg-surface-container-lowest hover:bg-surface-container-high text-on-surface font-label-ui text-label-ui px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[16px]">print</span>
+              Khổ A5 Gỗ
+            </button>
+</div>
+</div>
+<!-- Door Reception State Controls -->
+<div class="space-y-space-md">
+<div>
+<label class="font-label-ui text-label-ui text-on-surface mb-2 block">Trạng thái nhận khách cửa vào</label>
+<div class="grid grid-cols-2 gap-2">
+<button class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-primary-container text-on-primary font-headline-sm text-body-sm shadow-sm">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                OPEN
+              </button>
+<button class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-ui text-body-sm transition-colors">
+<span class="material-symbols-outlined text-[16px]">pause_circle</span>
+                PAUSED
+              </button>
+<button class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-ui text-body-sm transition-colors">
+<span class="material-symbols-outlined text-[16px]">group_off</span>
+                FULL (HẾT)
+              </button>
+<button class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-error font-label-ui text-body-sm transition-colors">
+<span class="material-symbols-outlined text-[16px]">cancel</span>
+                CLOSED
+              </button>
+</div>
+</div>
+<!-- Time Budget Configuration -->
+<div>
+<div class="flex items-center justify-between mb-1.5">
+<label class="font-label-ui text-label-ui text-on-surface">Cấu hình Time Budget khách chọn</label>
+<span class="font-label-code text-label-code text-primary-container font-bold">PRD 6.11</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Giúp Host xếp thứ tự bàn theo dự kiến dùng bữa.</p>
+<div class="grid grid-cols-2 gap-2">
+<label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low cursor-pointer">
+<input checked="" class="w-4 h-4 accent-primary-container rounded" type="checkbox"/>
+<span class="font-label-code text-label-code text-on-surface font-bold">≤15 phút</span>
+</label>
+<label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low cursor-pointer">
+<input checked="" class="w-4 h-4 accent-primary-container rounded" type="checkbox"/>
+<span class="font-label-code text-label-code text-on-surface font-bold">15 - 30 phút</span>
+</label>
+<label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low cursor-pointer">
+<input checked="" class="w-4 h-4 accent-primary-container rounded" type="checkbox"/>
+<span class="font-label-code text-label-code text-on-surface font-bold">30 - 45 phút</span>
+</label>
+<label class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low cursor-pointer">
+<input checked="" class="w-4 h-4 accent-primary-container rounded" type="checkbox"/>
+<span class="font-label-code text-label-code text-on-surface font-bold">Thoải mái</span>
+</label>
+</div>
+</div>
+<!-- TTL Wait Time Auto Estimation -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex items-start gap-space-md">
+<div class="p-2 rounded-lg bg-secondary-container text-on-secondary shadow-sm">
+<span class="material-symbols-outlined text-[20px]">hourglass_top</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between">
+<span class="font-headline-sm text-body-sm text-on-surface font-bold">TTL Thời Gian Chờ</span>
+<span class="font-label-code text-label-code text-primary-container font-bold">15 PHÚT</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Tự động hiệu chỉnh dựa trên tốc độ hoàn thành món và thanh toán tại 42 bàn trong 60 phút qua.</p>
+</div>
+</div>
+<!-- Phone Number Mandatory Switch -->
+<div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-low">
+<div class="flex flex-col">
+<span class="font-label-ui text-label-ui text-on-surface">Bắt buộc nhập Số điện thoại</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Tắt: Chỉ yêu cầu khi khách muốn SMS gọi bàn</span>
+</div>
+<div class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" id="phone-req-toggle" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-primary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</div>
+</div>
+<!-- Multilingual Selector -->
+<div class="p-2.5 rounded-lg bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant">translate</span>
+<span class="font-label-ui text-label-ui text-on-surface">Bắt buộc Song ngữ</span>
+</div>
+<span class="font-label-code text-label-code bg-primary-fixed text-on-primary-fixed px-2 py-0.5 rounded font-bold">VI / EN ACTIVE</span>
+</div>
+</div>
+</div>
+</div>
+<!-- COL 2: Table QR Tokens & Security Management (Span 6) -->
+<div class="xl:col-span-6 flex flex-col gap-space-md">
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm">
+<!-- Table Management Header & Actions -->
+<div class="flex flex-wrap items-center justify-between gap-space-md mb-space-md">
+<div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container">table_bar</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Quản Lý Token Bàn Phục Vụ</h2>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Bảo mật HMAC không lưu trữ PII của khách hàng</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-ui text-label-ui px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-[16px] text-error">lock_reset</span>
+              Thu hồi mã bàn (Revoke)
+            </button>
+<button class="bg-primary-container hover:bg-primary text-on-primary font-label-ui text-label-ui px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-[16px]">rotate_right</span>
+              Tạo lại Token toàn bộ (Rotate)
+            </button>
+</div>
+</div>
+<!-- Filter / Fast search bar -->
+<div class="flex items-center justify-between gap-space-md mb-space-md p-2 bg-surface-container-low rounded-lg">
+<div class="flex items-center gap-2 flex-1">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">search</span>
+<input class="bg-transparent border-none text-on-surface font-body-sm text-body-sm w-full focus:outline-none placeholder:text-on-surface-variant" placeholder="Tìm kiếm bàn, mã token hash, hoặc khu vực..." type="text"/>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="px-2.5 py-1 rounded bg-surface-container-lowest text-primary-container font-label-code text-label-code font-bold">TẤT CẢ (42)</button>
+<button class="px-2.5 py-1 rounded hover:bg-surface-container-lowest text-on-surface-variant font-label-code text-label-code">TẦNG 1 (18)</button>
+<button class="px-2.5 py-1 rounded hover:bg-surface-container-lowest text-on-surface-variant font-label-code text-label-code">TẦNG 2 (16)</button>
+<button class="px-2.5 py-1 rounded hover:bg-surface-container-lowest text-on-surface-variant font-label-code text-label-code">SÂN VƯỜN (8)</button>
+</div>
+</div>
+<!-- Table QR Token Data Grid -->
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-on-surface-variant font-label-code text-label-code uppercase tracking-wider bg-surface-container-low rounded-lg">
+<th class="py-2.5 px-3 rounded-l-lg">Bàn</th>
+<th class="py-2.5 px-3">Khu vực</th>
+<th class="py-2.5 px-3">Ghế</th>
+<th class="py-2.5 px-3">Token Hash Ký Điện Tử</th>
+<th class="py-2.5 px-3">Quét gần nhất</th>
+<th class="py-2.5 px-3">Trạng thái</th>
+<th class="py-2.5 px-3 text-right rounded-r-lg">In Tem Mica</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-low">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-3 px-3">
+<span class="font-headline-sm text-headline-sm text-on-surface">T-01</span>
+</td>
+<td class="py-3 px-3 font-body-sm text-body-sm text-on-surface">Tầng 1 (Cửa sổ)</td>
+<td class="py-3 px-3 font-label-numeric text-label-numeric text-on-surface">4 Pax</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-1 font-label-code text-label-code text-on-surface-variant">
+<span class="bg-surface-container px-2 py-0.5 rounded text-[11px] font-mono">0x9F4C...8E1</span>
+<button class="hover:text-primary-container p-0.5"><span class="material-symbols-outlined text-[14px]">content_copy</span></button>
+</div>
+</td>
+<td class="py-3 px-3 font-label-code text-label-code text-on-surface">3 phút trước</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-fixed text-on-primary-fixed-variant font-label-code text-[11px] font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+                    Đang phục vụ
+                  </span>
+</td>
+<td class="py-3 px-3 text-right">
+<button class="p-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary-container transition-colors" title="In tem mica QR">
+<span class="material-symbols-outlined text-[18px]">print</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-3 px-3">
+<span class="font-headline-sm text-headline-sm text-on-surface">T-02</span>
+</td>
+<td class="py-3 px-3 font-body-sm text-body-sm text-on-surface">Tầng 1 (Trung tâm)</td>
+<td class="py-3 px-3 font-label-numeric text-label-numeric text-on-surface">2 Pax</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-1 font-label-code text-label-code text-on-surface-variant">
+<span class="bg-surface-container px-2 py-0.5 rounded text-[11px] font-mono">0x2A1B...FD9</span>
+<button class="hover:text-primary-container p-0.5"><span class="material-symbols-outlined text-[14px]">content_copy</span></button>
+</div>
+</td>
+<td class="py-3 px-3 font-label-code text-label-code text-on-surface">18 phút trước</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-fixed text-on-primary-fixed-variant font-label-code text-[11px] font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+                    Đang phục vụ
+                  </span>
+</td>
+<td class="py-3 px-3 text-right">
+<button class="p-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary-container transition-colors" title="In tem mica QR">
+<span class="material-symbols-outlined text-[18px]">print</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-3 px-3">
+<span class="font-headline-sm text-headline-sm text-on-surface">T-08</span>
+</td>
+<td class="py-3 px-3 font-body-sm text-body-sm text-on-surface">Tầng 1 (Góc sách)</td>
+<td class="py-3 px-3 font-label-numeric text-label-numeric text-on-surface">4 Pax</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-1 font-label-code text-label-code text-on-surface-variant">
+<span class="bg-surface-container px-2 py-0.5 rounded text-[11px] font-mono">0x88C4...B22</span>
+<button class="hover:text-primary-container p-0.5"><span class="material-symbols-outlined text-[14px]">content_copy</span></button>
+</div>
+</td>
+<td class="py-3 px-3 font-label-code text-label-code text-on-surface-variant">Chưa có</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-code text-[11px]">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+                    Bàn trống
+                  </span>
+</td>
+<td class="py-3 px-3 text-right">
+<button class="p-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary-container transition-colors" title="In tem mica QR">
+<span class="material-symbols-outlined text-[18px]">print</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-3 px-3">
+<span class="font-headline-sm text-headline-sm text-on-surface">VIP-01</span>
+</td>
+<td class="py-3 px-3 font-body-sm text-body-sm text-on-surface">Tầng 2 (Phòng kính)</td>
+<td class="py-3 px-3 font-label-numeric text-label-numeric text-on-surface">8 Pax</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-1 font-label-code text-label-code text-on-surface-variant">
+<span class="bg-surface-container px-2 py-0.5 rounded text-[11px] font-mono">0xE411...99A</span>
+<button class="hover:text-primary-container p-0.5"><span class="material-symbols-outlined text-[14px]">content_copy</span></button>
+</div>
+</td>
+<td class="py-3 px-3 font-label-code text-label-code text-on-surface">41 phút trước</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-code text-[11px] font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container animate-ping"></span>
+                    Đợi chốt hoá đơn
+                  </span>
+</td>
+<td class="py-3 px-3 text-right">
+<button class="p-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary-container transition-colors" title="In tem mica QR">
+<span class="material-symbols-outlined text-[18px]">print</span>
+</button>
+</td>
+</tr>
+<!-- Row 5 (Locked table) -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-3 px-3">
+<span class="font-headline-sm text-headline-sm text-on-surface">BAR-02</span>
+</td>
+<td class="py-3 px-3 font-body-sm text-body-sm text-on-surface">Quầy Pha Chế</td>
+<td class="py-3 px-3 font-label-numeric text-label-numeric text-on-surface">2 Pax</td>
+<td class="py-3 px-3">
+<div class="flex items-center gap-1 font-label-code text-label-code text-on-surface-variant">
+<span class="bg-surface-container px-2 py-0.5 rounded text-[11px] font-mono">0xREVOKED_00</span>
+</div>
+</td>
+<td class="py-3 px-3 font-label-code text-label-code text-on-surface-variant">2 giờ trước</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error-container text-on-error-container font-label-code text-[11px]">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                    Đang khoá Token
+                  </span>
+</td>
+<td class="py-3 px-3 text-right">
+<button class="p-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary-container transition-colors" title="In tem mica QR">
+<span class="material-symbols-outlined text-[18px]">print</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Token Management Sub-Notes -->
+<div class="mt-space-md p-space-md rounded-xl bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container text-[20px]">security</span>
+<span class="font-body-sm text-body-sm text-on-surface">Cơ chế chống giả mạo URL: QR Code sinh ngẫu nhiên kèm Salt nội bộ thay đổi mỗi khi xoay vòng.</span>
+</div>
+<button class="font-label-ui text-label-ui text-primary-container hover:underline font-bold">In hàng loạt (Batch PDF)</button>
+</div>
+</div>
+</div>
+<!-- COL 3: Table QR Guest Rules & Quick Service (Span 3) -->
+<div class="xl:col-span-3 flex flex-col gap-space-md">
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm">
+<div class="flex items-center justify-between mb-space-md">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container">room_service</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Trải Nghiệm Tại Bàn</h2>
+</div>
+<span class="font-label-code text-label-code bg-surface-container text-on-surface-variant px-2 py-0.5 rounded">PRD 6.10</span>
+</div>
+<!-- Order Workflow Governance Rule -->
+<div class="p-space-md rounded-xl bg-surface-container-low mb-space-md">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary-container text-[20px]">verified_user</span>
+<span class="font-headline-sm text-body-sm text-on-surface">Quy tắc Order &amp; Trừ kho</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-3">Cho phép khách chủ động gọi thêm món trên thiết bị cá nhân mà không phụ thuộc thu ngân gõ lại.</p>
+<div class="p-3 bg-surface-container-lowest rounded-lg shadow-xs space-y-2">
+<div class="flex items-center justify-between">
+<span class="font-label-ui text-body-sm text-on-surface font-semibold">Tự động trừ tồn kho (Auto BOM)</span>
+<span class="font-label-code text-label-code text-error font-bold">VÔ HIỆU HÓA</span>
+</div>
+<div class="p-2 bg-error-container/40 rounded text-on-error-container font-body-sm text-[12px] leading-tight flex items-start gap-1.5">
+<span class="material-symbols-outlined text-[16px] shrink-0 mt-0.5">info</span>
+<span>BẮT BUỘC nhân viên bàn hoặc bếp KDS bấm <strong>Xác Nhận (Acknowledge)</strong> đơn mới kích hoạt lệnh trừ kho BOM nhằm ngăn chặn đơn ảo/trẻ em nghịch.</span>
+</div>
+</div>
+</div>
+<!-- 1-Tap Quick Assistance Buttons Config -->
+<div class="space-y-space-sm mb-space-lg">
+<label class="font-label-ui text-label-ui text-on-surface block">Nút Gọi Hỗ Trợ 1-Chạm (Quick Call Action)</label>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Khách bấm trên màn hình điện thoại, đồng hồ rung phục vụ FOH sẽ nhận rung tức thì.</p>
+<div class="space-y-2">
+<!-- Action 1 -->
+<div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-low">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-primary-container text-[20px]">local_cafe</span>
+<div class="flex flex-col">
+<span class="font-label-ui text-body-sm text-on-surface">Châm trà đá / Nước lọc</span>
+<span class="font-label-code text-[11px] text-on-surface-variant">Alert: Bàn phục vụ phụ trách</span>
+</div>
+</div>
+<input checked="" class="w-4 h-4 accent-primary-container rounded cursor-pointer" type="checkbox"/>
+</div>
+<!-- Action 2 -->
+<div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-low">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-primary-container text-[20px]">flatware</span>
+<div class="flex flex-col">
+<span class="font-label-ui text-body-sm text-on-surface">Thêm bát đĩa / Đồ gắp phụ</span>
+<span class="font-label-code text-[11px] text-on-surface-variant">Alert: Bộ phận Runner</span>
+</div>
+</div>
+<input checked="" class="w-4 h-4 accent-primary-container rounded cursor-pointer" type="checkbox"/>
+</div>
+<!-- Action 3 -->
+<div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-low">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-primary-container text-[20px]">receipt_long</span>
+<div class="flex flex-col">
+<span class="font-label-ui text-body-sm text-on-surface">Kiểm hoá đơn tạm tính</span>
+<span class="font-label-code text-[11px] text-on-surface-variant">Alert: Thu ngân POS &amp; In Bill</span>
+</div>
+</div>
+<input checked="" class="w-4 h-4 accent-primary-container rounded cursor-pointer" type="checkbox"/>
+</div>
+<!-- Action 4 -->
+<div class="flex items-center justify-between p-2.5 rounded-lg bg-surface-container-low">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-secondary text-[20px]">support_agent</span>
+<div class="flex flex-col">
+<span class="font-label-ui text-body-sm text-on-surface">Gặp Quản lý Ca Trực</span>
+<span class="font-label-code text-[11px] text-on-surface-variant">Alert: Floor Captain (Level 2)</span>
+</div>
+</div>
+<input checked="" class="w-4 h-4 accent-primary-container rounded cursor-pointer" type="checkbox"/>
+</div>
+</div>
+</div>
+<!-- Primary Action Submit -->
+<button class="w-full bg-primary-container hover:bg-primary text-on-primary font-headline-sm text-body-sm py-3 px-space-md rounded-lg shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer">
+<span class="material-symbols-outlined text-[20px]">save</span>
+          Lưu Cấu Hình Vận Hành FOH
+        </button>
+</div>
+</div>
+</div>
+</div></main></div></body></html>

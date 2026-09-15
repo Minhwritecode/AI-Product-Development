@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "primary-container": "#064e3b", "on-surface-variant": "#404944", "on-surface": "#131b2e", "on-background": "#131b2e", "inverse-on-surface": "#eef0ff", "on-tertiary-fixed": "#001d31", "outline": "#707974", "surface-variant": "#dae2fd", "primary": "#003527", "on-error-container": "#93000a", "on-secondary-fixed": "#2f1500", "error-container": "#ffdad6", "on-secondary": "#ffffff", "on-tertiary": "#ffffff", "surface-container-low": "#f2f3ff", "inverse-primary": "#95d3ba", "surface-bright": "#faf8ff", "secondary-container": "#fe932c", "secondary-fixed": "#ffdcc3", "background": "#faf8ff", "surface-container-lowest": "#ffffff", "on-tertiary-container": "#5db9ff", "primary-fixed": "#b0f0d6", "on-primary-fixed": "#002117", "tertiary-container": "#004870", "on-tertiary-fixed-variant": "#004b73", "tertiary-fixed": "#cce5ff", "on-error": "#ffffff", "surface-container-highest": "#dae2fd", "inverse-surface": "#283044", "outline-variant": "#bfc9c3", "secondary": "#904d00", "on-primary-container": "#80bea6", "error": "#ba1a1a", "tertiary-fixed-dim": "#93ccff", "on-secondary-container": "#663500", "surface-container-high": "#e2e7ff", "surface-container": "#eaedff", "on-primary-fixed-variant": "#0b513d", "on-secondary-fixed-variant": "#6e3900", "surface-tint": "#2b6954", "tertiary": "#00314e", "surface": "#faf8ff", "secondary-fixed-dim": "#ffb77d", "on-primary": "#ffffff", "primary-fixed-dim": "#95d3ba", "surface-dim": "#d2d9f4" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "margin-mobile": "0.75rem", "space-xs": "0.25rem", "gutter-mobile": "0.75rem", "margin": "1rem", "space-sm": "0.5rem", "space-xl": "2rem", "margin-desktop": "2rem", "space-lg": "1.25rem", "gutter-desktop": "1.5rem", "space-md": "0.75rem", "gutter": "1rem" }, "fontFamily": { "label-numeric": ["JetBrains Mono"], "label-code": ["JetBrains Mono"], "display-lg-mobile": ["Plus Jakarta Sans"], "body-sm": ["Plus Jakarta Sans"], "label-ui": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "body-md": ["Plus Jakarta Sans"], "headline-sm": ["Plus Jakarta Sans"], "headline-lg-mobile": ["Plus Jakarta Sans"], "display-lg": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "body-lg": ["Plus Jakarta Sans"] }, "fontSize": { "label-numeric": ["14px", { "lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "500" }], "label-code": ["11px", { "lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "600" }], "display-lg-mobile": ["30px", { "lineHeight": "38px", "letterSpacing": "-0.015em", "fontWeight": "700" }], "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "label-ui": ["13px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }], "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.005em", "fontWeight": "600" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }], "headline-lg-mobile": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "display-lg": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "headline-lg": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }] } } } }</script><style>@layer base { html, body { width: 100vw; margin: 0; padding: 0; } body { overscroll-behavior: none; } .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); } .pt-safe { padding-top: env(safe-area-inset-top, 0px); } main > :first-child { margin-top: 0 !important; } main > :last-child { margin-bottom: 0 !important; } } ::-webkit-scrollbar { display: none; }</style></head><body class="bg-surface font-body-md text-body-md text-on-surface antialiased"><main class="flex flex-col relative w-full min-h-screen bg-surface pt-safe pb-safe"><div class="flex flex-col w-full pb-8">
+<!-- Branch & Operational Status Banner -->
+<section class="px-4 pt-3 pb-4 bg-surface-container-lowest shadow-sm rounded-b-2xl">
+<div class="flex items-center justify-between mb-3">
+<div class="flex items-center space-x-2">
+<span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-container text-on-primary">
+<span class="material-symbols-outlined text-[18px]">restaurant</span>
+</span>
+<div>
+<span class="font-headline-sm text-headline-sm text-on-surface tracking-tight block">Luminex Flagship</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-primary">location_on</span>
+            Quận 1, TP. Hồ Chí Minh
+          </span>
+</div>
+</div>
+<!-- Language Toggle -->
+<div class="flex items-center bg-surface-container p-0.5 rounded-full" id="lang-switch">
+<button class="px-2.5 py-1 rounded-full font-label-code text-label-code bg-primary-container text-on-primary font-bold shadow-xs transition-all" id="btn-vi" type="button">
+          VIE
+        </button>
+<button class="px-2.5 py-1 rounded-full font-label-code text-label-code text-on-surface-variant hover:text-on-surface transition-all" id="btn-en" type="button">
+          ENG
+        </button>
+</div>
+</div>
+<!-- Live Rush Badge -->
+<div class="flex items-center justify-between bg-surface-container-high px-3 py-2 rounded-xl">
+<div class="flex items-center gap-2">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-secondary-container"></span>
+</span>
+<span class="font-label-ui text-label-ui text-on-secondary-container uppercase tracking-wider">
+          ĐANG PHỤC VỤ (GIỜ CAO ĐIỂM)
+        </span>
+</div>
+<span class="font-label-numeric text-label-numeric text-on-surface-variant font-semibold">19:42:15</span>
+</div>
+</section>
+<div class="px-4 space-y-4 mt-3">
+<!-- Live Wait Time & Crowd Pulse Card -->
+<div class="bg-surface-container-lowest rounded-2xl p-4 shadow-sm relative overflow-hidden">
+<!-- Ambient emerald sheen -->
+<div class="absolute -right-8 -top-8 w-28 h-28 bg-primary-fixed/20 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<div>
+<span class="font-label-ui text-label-ui text-on-surface-variant uppercase tracking-wider block mb-1">
+            Thời Gian Chờ Ước Tính
+          </span>
+<div class="flex items-baseline gap-1.5">
+<span class="font-display-lg-mobile text-display-lg-mobile text-primary-container font-extrabold tracking-tight">
+              15 - 25
+            </span>
+<span class="font-headline-md text-headline-md text-primary-container font-bold">Phút</span>
+</div>
+</div>
+<div class="bg-surface-container-low px-2.5 py-1.5 rounded-lg text-right">
+<div class="flex items-center justify-end gap-1 text-primary">
+<span class="material-symbols-outlined text-[15px]">verified</span>
+<span class="font-label-code text-label-code font-bold">Độ tin cậy: Cao</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant block mt-0.5">Cập nhật lúc 19:42</span>
+</div>
+</div>
+<!-- Live Queue Breakdown Pill Stack -->
+<div class="mt-4 bg-surface-container-low p-3 rounded-xl">
+<div class="flex items-center justify-between mb-2">
+<span class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px] text-primary-container">groups</span>
+            04 nhóm đang chờ trước bạn
+          </span>
+<span class="font-label-code text-label-code bg-surface-container-highest text-on-surface px-2 py-0.5 rounded-full font-bold">
+            Live
+          </span>
+</div>
+<div class="grid grid-cols-2 gap-2 mt-1">
+<div class="bg-surface-container-lowest p-2 rounded-lg flex items-center justify-between shadow-xs">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Bàn 2 - 4 khách:</span>
+<span class="font-label-numeric text-label-numeric font-bold text-primary-container">02 nhóm</span>
+</div>
+<div class="bg-surface-container-lowest p-2 rounded-lg flex items-center justify-between shadow-xs">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Bàn &gt; 5 khách:</span>
+<span class="font-label-numeric text-label-numeric font-bold text-primary-container">02 nhóm</span>
+</div>
+</div>
+</div>
+<!-- Immediate Seating Opportunity Notice -->
+<div class="mt-3 bg-secondary-fixed/50 p-3 rounded-xl flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center flex-shrink-0 text-on-secondary">
+<span class="material-symbols-outlined text-[18px]">local_bar</span>
+</div>
+<div class="flex-1 min-w-0">
+<span class="font-headline-sm text-headline-sm text-on-secondary-fixed block text-[13px] leading-tight font-semibold">
+            Có 2 chỗ trống tại quầy Bar
+          </span>
+<span class="font-body-sm text-body-sm text-on-secondary-container block truncate">
+            Phục vụ cocktails, đồ nguội &amp; món chính ngay lập tức
+          </span>
+</div>
+<button class="bg-surface-container-lowest text-secondary font-label-ui text-label-ui px-2.5 py-1.5 rounded-lg shadow-xs active:scale-95 transition-transform flex-shrink-0" type="button">
+          Ngồi ngay
+        </button>
+</div>
+</div>
+<!-- Interactive Waitlist Registration Form -->
+<form class="bg-surface-container-lowest rounded-2xl p-4 shadow-sm space-y-4" id="waitlist-form" onsubmit="return false;">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">
+          Đăng Ký Xếp Hàng
+        </h2>
+<span class="font-label-code text-label-code text-primary-container bg-primary-fixed/40 px-2.5 py-1 rounded-full font-bold">
+          PRD MODULE F-10
+        </span>
+</div>
+<!-- 1. Party Size Selector -->
+<div>
+<label class="block font-label-ui text-label-ui text-on-surface mb-2 font-semibold flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[17px] text-primary">person_add</span>
+          Số lượng khách đi cùng bạn
+        </label>
+<div class="grid grid-cols-2 gap-2" id="party-size-group">
+<button class="party-btn h-11 px-3 rounded-xl font-label-ui text-label-ui flex items-center justify-center bg-surface-container-low text-on-surface hover:bg-surface-container transition-all" data-size="1-2" type="button">
+            1 - 2 Khách
+          </button>
+<button class="party-btn h-11 px-3 rounded-xl font-label-ui text-label-ui flex items-center justify-center bg-primary-container text-on-primary font-bold shadow-xs transition-all" data-size="3-4" type="button">
+            3 - 4 Khách (Được chọn)
+          </button>
+<button class="party-btn h-11 px-3 rounded-xl font-label-ui text-label-ui flex items-center justify-center bg-surface-container-low text-on-surface hover:bg-surface-container transition-all" data-size="5-6" type="button">
+            5 - 6 Khách
+          </button>
+<button class="party-btn h-11 px-3 rounded-xl font-label-ui text-label-ui flex items-center justify-center bg-surface-container-low text-on-surface hover:bg-surface-container transition-all" data-size="7+" type="button">
+            7+ Khách (Ghép bàn)
+          </button>
+</div>
+</div>
+<!-- 2. Time Budget Selector (PRD Core Feature) -->
+<div>
+<div class="flex items-center justify-between mb-1.5">
+<label class="font-label-ui text-label-ui text-on-surface font-semibold flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[17px] text-secondary">schedule</span>
+            Quỹ thời gian chờ của bạn (Time Budget)
+          </label>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">
+          Hệ thống sẽ ưu tiên điều phối bàn phù hợp theo dự kiến dùng bữa.
+        </p>
+<div class="space-y-2" id="time-budget-group">
+<!-- Budget Option 1 -->
+<div class="budget-option flex items-center justify-between p-3 rounded-xl bg-surface-container-low cursor-pointer transition-all active:scale-[0.99]" data-budget="15">
+<div class="flex items-center gap-3">
+<span class="w-4 h-4 rounded-full bg-surface-container-highest flex items-center justify-center status-radio">
+<span class="w-2 h-2 rounded-full bg-transparent"></span>
+</span>
+<div>
+<span class="font-label-ui text-label-ui text-on-surface font-semibold block">≤ 15 phút</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Cần ăn nhanh / Sắp có lịch hẹn</span>
+</div>
+</div>
+<span class="font-label-code text-label-code text-on-surface-variant">Rất gấp</span>
+</div>
+<!-- Budget Option 2 (Selected by default) -->
+<div class="budget-option flex items-center justify-between p-3 rounded-xl bg-primary-fixed/20 shadow-xs cursor-pointer transition-all active:scale-[0.99]" data-budget="30">
+<div class="flex items-center gap-3">
+<span class="w-4 h-4 rounded-full bg-primary-container flex items-center justify-center status-radio">
+<span class="w-2 h-2 rounded-full bg-surface-container-lowest"></span>
+</span>
+<div>
+<span class="font-label-ui text-label-ui text-primary-container font-bold block">15 - 30 phút (Phù hợp nhất)</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Tối ưu theo lượt xoay bàn hiện tại</span>
+</div>
+</div>
+<span class="font-label-code text-label-code bg-primary-container text-on-primary px-2 py-0.5 rounded-full font-bold">Gợi ý</span>
+</div>
+<!-- Budget Option 3 -->
+<div class="budget-option flex items-center justify-between p-3 rounded-xl bg-surface-container-low cursor-pointer transition-all active:scale-[0.99]" data-budget="45">
+<div class="flex items-center gap-3">
+<span class="w-4 h-4 rounded-full bg-surface-container-highest flex items-center justify-center status-radio">
+<span class="w-2 h-2 rounded-full bg-transparent"></span>
+</span>
+<div>
+<span class="font-label-ui text-label-ui text-on-surface font-semibold block">30 - 45 phút</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Chấp nhận đợi bàn view đẹp / yên tĩnh</span>
+</div>
+</div>
+<span class="font-label-code text-label-code text-on-surface-variant">Bình thường</span>
+</div>
+<!-- Budget Option 4 -->
+<div class="budget-option flex items-center justify-between p-3 rounded-xl bg-surface-container-low cursor-pointer transition-all active:scale-[0.99]" data-budget="flex">
+<div class="flex items-center gap-3">
+<span class="w-4 h-4 rounded-full bg-surface-container-highest flex items-center justify-center status-radio">
+<span class="w-2 h-2 rounded-full bg-transparent"></span>
+</span>
+<div>
+<span class="font-label-ui text-label-ui text-on-surface font-semibold block">Thoải mái thời gian</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Sẵn sàng dạo phố quanh sảnh</span>
+</div>
+</div>
+<span class="font-label-code text-label-code text-on-surface-variant">Thư thái</span>
+</div>
+</div>
+</div>
+<!-- 3. Guest Info (Frictionless / Optional) -->
+<div class="space-y-3 pt-2">
+<div>
+<label class="block font-label-ui text-label-ui text-on-surface mb-1 font-semibold" for="guest-name">
+            Tên đại diện nhóm / Biệt danh
+          </label>
+<div class="relative flex items-center">
+<input class="w-full h-12 px-3.5 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:bg-surface-container-lowest shadow-inner" id="guest-name" placeholder="Ví dụ: Anh Nam, Chị Vy..." type="text" value="Anh Hưng"/>
+<span class="absolute right-3.5 material-symbols-outlined text-on-surface-variant text-[20px]">badge</span>
+</div>
+</div>
+<div>
+<div class="flex items-center justify-between mb-1">
+<label class="font-label-ui text-label-ui text-on-surface font-semibold" for="guest-phone">
+              Số điện thoại
+            </label>
+<span class="font-label-code text-label-code text-on-surface-variant">Không bắt buộc</span>
+</div>
+<div class="relative flex items-center">
+<input class="w-full h-12 px-3.5 rounded-xl bg-surface-container-low text-on-surface font-label-numeric text-label-numeric focus:outline-none focus:bg-surface-container-lowest shadow-inner" id="guest-phone" placeholder="090 • • • • • • •" type="tel"/>
+<span class="absolute right-3.5 material-symbols-outlined text-on-surface-variant text-[20px]">sms</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1.5 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary">info</span>
+            Chỉ cần điền nếu quý khách muốn nhận tin nhắn SMS thông báo khi có bàn.
+          </p>
+</div>
+</div>
+<!-- 4. Accessibility & Special Accommodations -->
+<div class="pt-1">
+<span class="block font-label-ui text-label-ui text-on-surface mb-2 font-semibold">
+          Yêu cầu tiện ích đi kèm
+        </span>
+<div class="space-y-2">
+<label class="flex items-center gap-3 p-2.5 rounded-xl bg-surface-container-low cursor-pointer active:bg-surface-container">
+<input checked="" class="w-5 h-5 rounded bg-surface-container accent-primary-container" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-primary">child_care</span>
+              Cần ghế ăn trẻ em (Baby high chair)
+            </span>
+</label>
+<label class="flex items-center gap-3 p-2.5 rounded-xl bg-surface-container-low cursor-pointer active:bg-surface-container">
+<input class="w-5 h-5 rounded bg-surface-container accent-primary-container" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-primary">accessible</span>
+              Bàn tầng trệt / Hỗ trợ người cao tuổi hoặc xe đẩy
+            </span>
+</label>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="pt-2 space-y-2.5">
+<button class="w-full h-12 rounded-xl bg-primary-container text-on-primary font-headline-sm text-headline-sm flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-all" id="btn-submit-queue" type="button">
+<span class="material-symbols-outlined text-[20px]">confirmation_number</span>
+          Xác nhận Tham Gia Hàng Chờ
+        </button>
+<button class="w-full h-11 rounded-xl bg-surface-container-high text-on-surface font-label-ui text-label-ui flex items-center justify-center gap-2 active:bg-surface-container-highest transition-all" type="button">
+<span class="material-symbols-outlined text-[18px] text-secondary">menu_book</span>
+          Xem Menu điện tử trước trong lúc chờ
+        </button>
+</div>
+</form>
+<!-- Hospitality Visual Preview & Ambience Strip -->
+<div class="bg-surface-container-lowest p-3 rounded-2xl shadow-sm">
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-ui text-label-ui text-on-surface font-semibold flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">storefront</span>
+          Không gian thưởng thức tại Luminex
+        </span>
+<span class="font-label-code text-label-code text-on-surface-variant">4 Khu vực sảnh</span>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div class="relative h-24 rounded-xl overflow-hidden shadow-xs">
+<img class="w-full h-full object-cover" data-alt="Warm dining room interior of high-end restaurant Luminex with emerald leather booth seats, ambient pendant lights, and modern architectural wooden dividers." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCI8ZLzzkIDYfq3XNkuvDNuKuQSILNjAUO5NSwsDyJeMMruDpko7qQWVMrU54ZlEnLUQQ_KnNzsxdBVE1uzaLnQSHyW2DBwqHecsPMytdzflLglqEUIZHqwS1L3MbGO1_c-OfaSb6v1WqTz5JUrrhU169Y7MaD8IBpCJ9MrKT1YJ7vbCa7h_y7L8PGVANwZ9cUnB3fm9bd4A0gRp-9Aej-G1sb57yBxHjR8CuoYz4ku7IwYi4irhIwOFg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/80 via-transparent to-transparent flex items-end p-2">
+<span class="font-label-code text-label-code text-inverse-on-surface font-semibold">Tầng 1 • Khu Vực Sảnh</span>
+</div>
+</div>
+<div class="relative h-24 rounded-xl overflow-hidden shadow-xs">
+<img class="w-full h-full object-cover" data-alt="Sophisticated cocktail bar counter in Luminex restaurant with warm amber under-counter glow, neat glassware, and stylish green marble counter surface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCaVvkUPyECmO62VqdM-0egpLpZnx8ILwI88CpDH0268vTYk9mLFEaRW0CN5K_58gvjunT-Rjd0MOr2csdG74RVUx2z78zWu6eFthi9jUNMB4hGi37owsFwk8IMP0DoWJFSJ5iN2dKbdZ7UcuzG294l7Z0q2gEOmQgil9mfsV3Q9ilDSmvwBqjfqWTikZt-Sy2BxxOJXMPiSDBkz2hhb-usdIo-GfJuqddOW7hyhpYqqGNH8RlxkH71Bw"/>
+<div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/80 via-transparent to-transparent flex items-end p-2">
+<span class="font-label-code text-label-code text-inverse-on-surface font-semibold">Quầy Bar Cocktail</span>
+</div>
+</div>
+</div>
+</div>
+<!-- PRD Mandatory Staff Fallback & Hospitality Safeguard -->
+<div class="bg-surface-container p-4 rounded-2xl shadow-xs">
+<div class="flex items-start gap-3">
+<div class="w-9 h-9 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 text-on-primary">
+<span class="material-symbols-outlined text-[20px]">room_service</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold mb-1">
+            Gặp Trực Tiếp Host Tại Quầy
+          </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed mb-3">
+            Cần hỗ trợ đặc biệt, tiệc kỷ niệm, hoặc không muốn xếp hàng qua điện thoại? Đội ngũ Lễ tân luôn sẵn sàng đón tiếp quý khách ngay tại cửa sảnh.
+          </p>
+<div class="flex flex-wrap items-center gap-2">
+<a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface font-label-numeric text-label-numeric shadow-xs font-semibold" href="tel:02873009999">
+<span class="material-symbols-outlined text-[16px] text-primary">call</span>
+              028.7300.9999
+            </a>
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-lowest text-primary font-label-ui text-label-ui shadow-xs" type="button">
+<span class="material-symbols-outlined text-[16px]">support_agent</span>
+              Báo Host ra đón
+            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // Party Size Selection Micro-interaction
+  const partyButtons = document.querySelectorAll('.party-btn');
+  partyButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      partyButtons.forEach(b => {
+        b.className = 'party-btn h-11 px-3 rounded-xl font-label-ui text-label-ui flex items-center justify-center bg-surface-container-low text-on-surface hover:bg-surface-container transition-all';
+        b.textContent = b.getAttribute('data-size') === '7+' ? '7+ Khách (Ghép bàn)' : b.getAttribute('data-size') + ' Khách';
+      });
+      btn.className = 'party-btn h-11 px-3 rounded-xl font-label-ui text-label-ui flex items-center justify-center bg-primary-container text-on-primary font-bold shadow-xs transition-all';
+      btn.textContent = btn.getAttribute('data-size') + ' Khách (Được chọn)';
+    });
+  });
+
+  // Time Budget Selection Logic
+  const budgetOptions = document.querySelectorAll('.budget-option');
+  budgetOptions.forEach(opt => {
+    opt.addEventListener('click', () => {
+      budgetOptions.forEach(o => {
+        o.className = 'budget-option flex items-center justify-between p-3 rounded-xl bg-surface-container-low cursor-pointer transition-all active:scale-[0.99]';
+        const radioDot = o.querySelector('.status-radio span');
+        const radioWrap = o.querySelector('.status-radio');
+        if (radioDot) radioDot.className = 'w-2 h-2 rounded-full bg-transparent';
+        if (radioWrap) radioWrap.className = 'w-4 h-4 rounded-full bg-surface-container-highest flex items-center justify-center status-radio';
+      });
+      opt.className = 'budget-option flex items-center justify-between p-3 rounded-xl bg-primary-fixed/20 shadow-xs cursor-pointer transition-all active:scale-[0.99]';
+      const activeDot = opt.querySelector('.status-radio span');
+      const activeWrap = opt.querySelector('.status-radio');
+      if (activeDot) activeDot.className = 'w-2 h-2 rounded-full bg-surface-container-lowest';
+      if (activeWrap) activeWrap.className = 'w-4 h-4 rounded-full bg-primary-container flex items-center justify-center status-radio';
+    });
+  });
+
+  // Submit Feedback Micro-interaction
+  const submitBtn = document.getElementById('btn-submit-queue');
+  if (submitBtn) {
+    submitBtn.addEventListener('click', () => {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[20px]">sync</span> Đang cấp số thứ tự...';
+      setTimeout(() => {
+        submitBtn.className = 'w-full h-12 rounded-xl bg-primary-fixed text-on-primary-fixed font-headline-sm text-headline-sm flex items-center justify-center gap-2 shadow-md';
+        submitBtn.innerHTML = '<span class="material-symbols-outlined text-[20px]">check_circle</span> Đã lấy số: #A-24 (3 Khách)';
+      }, 700);
+    });
+  }
+
+  // Simple language switcher
+  const btnVi = document.getElementById('btn-vi');
+  const btnEn = document.getElementById('btn-en');
+  if (btnVi && btnEn) {
+    btnEn.addEventListener('click', () => {
+      btnEn.className = 'px-2.5 py-1 rounded-full font-label-code text-label-code bg-primary-container text-on-primary font-bold shadow-xs transition-all';
+      btnVi.className = 'px-2.5 py-1 rounded-full font-label-code text-label-code text-on-surface-variant hover:text-on-surface transition-all';
+    });
+    btnVi.addEventListener('click', () => {
+      btnVi.className = 'px-2.5 py-1 rounded-full font-label-code text-label-code bg-primary-container text-on-primary font-bold shadow-xs transition-all';
+      btnEn.className = 'px-2.5 py-1 rounded-full font-label-code text-label-code text-on-surface-variant hover:text-on-surface transition-all';
+    });
+  }
+</script></main></body></html>

@@ -26,6 +26,10 @@
 - [ADR-0001: BOH-first MVP](adr/0001-boh-first-mvp.md)
 - [ADR-0002: FOH Lite QR edge](adr/0002-foh-lite-qr-edge.md)
 
+## UI/UX reference
+
+- [Stitch UI/UX References](uiux/README.md) — 20 màn hình FOH/BOH, design system, prototype HTML và ảnh tham chiếu; chưa phải frontend runtime.
+
 ## Nguồn đầu vào
 
 Các bản spec, idea brief và product vision đã được đưa vào [docs/source/](source/README.md) để repository tự chứa đủ context của dự án.
