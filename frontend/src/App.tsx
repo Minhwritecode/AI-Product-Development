@@ -8,7 +8,10 @@ export default function App() {
 
   useEffect(() => {
     fetch(`${apiBase.replace(/\/api$/, '')}/health`)
-      .then((response) => response.json() as Promise<Health>)
+      .then((response) => {
+        // SAFETY: The backend health endpoint is owned by this repository and returns the Health shape.
+        return response.json() as Promise<Health>;
+      })
       .then(setHealth)
       .catch(() => setHealth({ status: 'offline' }));
   }, [apiBase]);

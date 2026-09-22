@@ -15,6 +15,8 @@
 | 08 | [Glossary & Decisions](08-glossary-and-decisions.md) | Thuật ngữ và quyết định sản phẩm |
 | 09 | [Unified Product Vision](09-unified-product-vision.md) | Hợp nhất FOH Lite và BOH Core |
 | 10 | [FOH QR Guest Experience](10-foh-qr-guest-experience.md) | Đặc tả QR trước cửa và tại bàn |
+| 11 | [BRD FOH → BOH](11-brd-foh-boh.md) | Business requirement chi tiết, owner, control, exception và acceptance |
+| 12 | [UI/UX Alignment Review](12-uiux-alignment-review.md) | Đối chiếu Stitch với pain point, scope MVP và accessibility |
 
 ## Tài liệu kỹ thuật
 
@@ -25,6 +27,10 @@
 - [Testing Strategy](setup/testing-strategy.md)
 - [ADR-0001: BOH-first MVP](adr/0001-boh-first-mvp.md)
 - [ADR-0002: FOH Lite QR edge](adr/0002-foh-lite-qr-edge.md)
+
+## Quy trình phát triển
+
+- [Branching, Commit và Merge Strategy](development/branching-strategy.md)
 
 ## UI/UX reference
 
