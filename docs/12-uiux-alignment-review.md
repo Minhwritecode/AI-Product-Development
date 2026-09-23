@@ -115,6 +115,6 @@ Mỗi màn hình khi chuyển thành code phải có:
 3. API/data contract và state machine.
 4. Loading/empty/stale/error/retry state.
 5. Accessibility and responsive test evidence.
-6. Traceability tới BRD, PRD/FR, user story và feature spec.
+6. Traceability tới PRD/FR, user story và feature spec.
 
 Nếu prototype và docs khác nhau, giữ prototype là visual reference và sửa implementation theo business baseline; không âm thầm sửa rule trong HTML prototype.

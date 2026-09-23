@@ -20,11 +20,9 @@ Luminex là nền tảng quản trị vận hành nhà hàng từ Front-of-House
 7. [Hướng dẫn setup](docs/setup/local-development.md)
 8. [Unified Product Vision](docs/09-unified-product-vision.md)
 9. [FOH QR Guest Experience](docs/10-foh-qr-guest-experience.md)
-10. [BRD FOH → BOH](docs/11-brd-foh-boh.md)
-11. [UI/UX Alignment Review](docs/12-uiux-alignment-review.md)
+10. [UI/UX Alignment Review](docs/12-uiux-alignment-review.md)
 
 Danh mục tài liệu nằm tại [docs/README.md](docs/README.md). Nguồn và cách xử lý mâu thuẫn được ghi tại [docs/00-source-synthesis.md](docs/00-source-synthesis.md).
-Quy tắc branch, commit và merge nằm tại [docs/development/branching-strategy.md](docs/development/branching-strategy.md).
 
 ## Chạy nhanh môi trường nền
 

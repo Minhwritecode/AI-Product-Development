@@ -3,9 +3,9 @@
 ## Before opening a change
 
 - Đọc PRD và feature spec liên quan.
-- Đọc [BRD FOH → BOH](docs/11-brd-foh-boh.md) nếu thay đổi workflow hoặc business rule.
+- Đọc [PRD](docs/02-prd.md) nếu thay đổi workflow hoặc business rule.
 - Gắn issue/branch với requirement ID hoặc user story ID.
-- Một branch chỉ có một scope chính; xem [branching strategy](docs/development/branching-strategy.md).
+- Một branch chỉ có một scope chính.
 - Không commit `.env`, API key hoặc dữ liệu nhà hàng thật.
 - Mutation tồn kho phải có transaction, idempotency và audit.
 

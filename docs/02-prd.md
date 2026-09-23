@@ -647,3 +647,47 @@ Các open question cũ ở mục 10 vẫn giữ nguyên. Các câu hỏi bổ su
 - [ ] `git diff --check` pass.
 - [ ] Typecheck, lint và test pass sau khi implementation bắt đầu.
 - [ ] Nội dung cũ trước mục 11 không bị sửa, xóa hoặc đổi tên.
+
+### 11.11 Business-level FOH → BOH clarification
+
+Phần này làm rõ business context ngay trong PRD để team không triển khai đúng API nhưng sai nỗi đau thực tế. Đây vẫn là PRD baseline, không phải một tài liệu BRD tách rời.
+
+#### FOH: giảm bất định nhưng vẫn giữ hospitality
+
+| Pain point | PRD requirement | Điều kiện không được vi phạm |
+|---|---|---|
+| Khách đứng trước cửa không biết còn bàn hay phải chờ bao lâu | Front-door QR hiển thị `OPEN/PAUSED/FULL/CLOSED`, queue size, estimated wait range, `as_of`, confidence và limitation | Không hiển thị giờ rời bàn của khách khác; không biến estimate thành lời hứa |
+| Khách du lịch không đọc được nội dung hoặc không muốn tải app | Chọn Vietnamese/English và xem availability không cần login/app/contact bắt buộc | Không ép tạo account hoặc nhập số điện thoại trước khi khách quyết định chờ |
+| Khách có time budget khác nhau | Bắt buộc party size và time budget trước CTA join queue | Nếu wait vượt budget phải có lựa chọn rời queue, xem menu hoặc hỏi staff |
+| Guest join rồi đổi ý | Có CTA `Rời hàng chờ` rõ ràng, không dark pattern, retry idempotent | Leave không được ẩn sau nhiều bước; trạng thái phải được xác nhận |
+| Nhân viên trả lời lặp lại câu hỏi queue | Host console có created time, party size, time budget, status, priority và owner | Host chỉ call/seat/cancel/expire theo state machine và branch scope |
+| Khách gửi nhầm yêu cầu cho bàn khác | Table QR dùng signed token và hiển thị table label để xác nhận trước submit | Token sai/hết hạn/revoked không được lộ session hoặc dữ liệu bàn |
+| Khách gọi thêm món khi server đang bận | Table QR hỗ trợ `ADD_ON` và `ASSISTANCE` với category, quantity, note/allergen và status | QR request bắt đầu ở `SUBMITTED`; chưa staff acknowledge thì chưa phải order vận hành |
+| Khách tưởng đã được phục vụ ngay | Confirmation dùng “Nhân viên đã nhận yêu cầu”, hiển thị timestamp/time range nếu có | Không hứa “sẽ ra ngay”, không tự mark `SERVED` khi timer hết |
+| Notification không gửi được | Delivery có `PENDING/SENT/FAILED/EXPIRED`, retry bounded và queue/request status vẫn xem được | Delivery failure không rollback hoặc tự đổi business status |
+| Khách không dùng được QR | Mọi QR state có CTA hỏi/gọi staff và quy trình thủ công tương đương | QR là lựa chọn bổ trợ, không phải rào cản hospitality |
+
+#### BOH: biến nguyên liệu và hao hụt thành dữ liệu có trách nhiệm
+
+| Pain point | PRD requirement | Điều kiện không được vi phạm |
+|---|---|---|
+| Ingredient cùng lúc dùng thùng/kg/litre/g/ml | Master data có purchase/stock/recipe unit và conversion rate dương | Mọi stock mutation normalize về canonical stock unit |
+| PO, phiếu giao và hàng thực nhận không khớp | Goods receipt hiển thị ordered, previously received, current received, accepted/damaged/rejected/backordered và discrepancy | Draft receipt không mutate stock; confirm phải atomic |
+| Receipt retry làm tăng tồn hai lần | Receipt dùng `Idempotency-Key`, transaction và append-only ledger | Retry trả kết quả cũ, không tạo ledger event thứ hai |
+| Branch xin hàng qua chat/giấy | Stock request có branch, ingredient, quantity, urgency, needed-by, requester và state | Branch chỉ thấy/sửa scope của mình; request chưa approval không trừ warehouse |
+| Hàng đang chuyển bị tính nhầm là đã nhận | Shipment tách `APPROVED/IN_TRANSIT/RECEIVED/DISCREPANCY` | Chỉ branch acceptance mới tăng branch stock |
+| Count cuối ngày không phản ánh dữ liệu thực | Daily count lưu opening, received, theoretical sold nếu có và closing actual | Thiếu `sold_qty_theory` phải là `NOT_AVAILABLE/INCOMPLETE_THEORY`, không silent zero |
+| Wastage chỉ ghi “mất” và không biết mất bao nhiêu tiền | Wastage bắt buộc quantity > 0, reason, standard price snapshot, value, actor và evidence theo policy | `wastage_value` luôn là giá trị dương; không dùng số âm để thay cho variance |
+| Sửa sai làm mất lịch sử | Count/wastage có submit/approve/reject/lock; correction tạo compensating event | Ledger posted immutable, không hard-delete hoặc sửa trực tiếp record gốc |
+| Owner không biết số liệu mới tới đâu | Dashboard luôn có branch scope, timezone, `as_of`, freshness và drill-down source record | Không trình bày POS/KDS/sold data roadmap như dữ liệu live |
+| AI nhập nhanh nhưng có thể làm bẩn master/stock | AI trả suggestion, confidence, warning, sources và requires approval | AI không tự ghi recipe, PO, stock, wastage hoặc tự approve |
+
+#### Acceptance gates bổ sung cho PRD
+
+- [ ] Mỗi FOH/BOH flow có actor, owner, branch scope, input, output, state transition và failure/recovery path.
+- [ ] Mọi mutation có permission, idempotency, audit event và error code ổn định.
+- [ ] Mọi dữ liệu thiếu hoặc stale được hiển thị rõ; không suy đoán thành số 0 hoặc trạng thái thành công.
+- [ ] FOH guest không bị yêu cầu app/account/contact nếu không cần cho hành động họ đang chọn.
+- [ ] BOH transaction có source record, canonical unit, snapshot giá trị và khả năng reconcile với ledger.
+- [ ] AI và notification chỉ là side effect có quan sát; không được tự thay đổi business status ngoài policy.
+- [ ] Prototype UI chỉ được xem là đạt khi đã đối chiếu với screen ID, PRD scope, loading/empty/stale/error state và accessibility checklist.
