@@ -15,8 +15,6 @@
 | 08 | [Glossary & Decisions](08-glossary-and-decisions.md) | Thuật ngữ và quyết định sản phẩm |
 | 09 | [Unified Product Vision](09-unified-product-vision.md) | Hợp nhất FOH Lite và BOH Core |
 | 10 | [FOH QR Guest Experience](10-foh-qr-guest-experience.md) | Đặc tả QR trước cửa và tại bàn |
-| 12 | [UI/UX Alignment Review](12-uiux-alignment-review.md) | Đối chiếu Stitch với pain point, scope MVP và accessibility |
-
 ## Tài liệu kỹ thuật
 
 - [Architecture Overview](architecture/overview.md)

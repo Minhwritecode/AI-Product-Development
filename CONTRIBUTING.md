@@ -16,5 +16,4 @@
 - [ ] `npm run typecheck` và test pass khi dependency đã cài.
 - [ ] Docs/API/schema được cập nhật nếu behavior thay đổi.
 - [ ] Có note migration/rollback nếu thay đổi data model.
-- [ ] UI change đã đối chiếu [UI/UX alignment review](docs/12-uiux-alignment-review.md).
 - [ ] Mọi branch push đều đi qua CI; không push trực tiếp feature vào `main`.
