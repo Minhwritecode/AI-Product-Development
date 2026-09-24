@@ -120,6 +120,9 @@ Unreliable operational data
 - “Thông tin nào phải có trước khi duyệt/đóng một request?”
 - “Nếu thiếu ingredient khi đang bán món, FOH biết bằng cách nào?”
 - “Ai có quyền sửa số liệu và cần lưu bằng chứng gì?”
+- “Ai được mở/tạm dừng queue, đặt capacity và override estimated wait? Cần reason nào?”
+- “Guest notification dùng kênh nào, thời gian giữ contact bao lâu và fallback ra sao khi gửi thất bại?”
+- “Khi receipt/transfer/count sai, ai được tạo correction, ai duyệt và kỳ nào phải khóa?”
 
 ## Success signals
 
@@ -136,6 +139,7 @@ Unreliable operational data
 - Guest có thể rời queue và chuyển sang staff fallback dễ dàng.
 - Add-on request có trạng thái `đã nhận → đang xác nhận/chuẩn bị → đã phục vụ`.
 - Staff vẫn là người xác nhận request; QR không tạo promise về thời gian phục vụ ngoài dữ liệu có căn cứ.
+- Queue policy, operating state và notification delivery có owner; override/failure được audit và đo được.
 
 ### Business
 
@@ -146,4 +150,4 @@ Unreliable operational data
 
 ## Discovery exit criteria
 
-Discovery đủ để bắt đầu build khi đã xác nhận: role/permission, branch model, unit policy, goods receipt policy, daily count cadence, wastage reason list, standard price rule, POS data availability và owner của từng quy trình.
+Discovery đủ để bắt đầu build khi đã xác nhận: role/permission, branch model, unit policy, goods receipt policy, daily count cadence, wastage reason list, standard price rule, operating state/queue policy, notification channel/retention, correction approval, POS data availability và owner của từng quy trình.

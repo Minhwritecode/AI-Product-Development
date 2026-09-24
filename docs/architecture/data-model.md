@@ -15,6 +15,10 @@ Branch ──< DailyCount ──< WastageLine >── Ingredient
 All mutations ──< AuditLog
 GuestSession ──< QueueEntry >── QueuePolicy
 GuestSession ──< FOHRequest >── TableSession
+Branch ──< BranchConfig / OperatingState / QueuePolicy
+Branch ──< TableConfig ──< TableToken
+StockLocation ──< StockAdjustment ──< InventoryLedger
+SourceRecord ──< OperationalTask / Notification
 ```
 
 ## Required fields
@@ -52,6 +56,17 @@ GuestSession ──< FOHRequest >── TableSession
 
 FOH request does not directly close a bill, process payment or mutate stock; it becomes an operational signal after staff acknowledgement.
 
+### Operational configuration and controls
+
+- `BranchConfig`: `branch_id`, `timezone`, `currency`, `service_hours`, `status`, `effective_from`.
+- `WarehouseLocation`: `id`, `branch_id?`, `location_type`, `status`, `scope`.
+- `TableConfig`: `id`, `branch_id`, `label`, `capacity`, `accessibility_tags`, `status`.
+- `QueuePolicy`: `branch_id`, `party_size_min/max`, `capacity`, `wait_ttl`, `time_budget_options`, `effective_from`.
+- `TableToken`: `table_id`, `token_hash`, `issued_at`, `expires_at`, `revoked_at?`; raw token không lưu DB.
+- `OperationalTask`: `source_type/id`, `branch_id`, `priority`, `owner_id?`, `due_at?`, `status`, `resolution_note`.
+- `Notification`: `event_key`, `recipient/session`, `channel`, `status`, `attempt_count`, `expires_at`, `sent_at?`.
+- `StockAdjustment`: `location_id`, `ingredient_id`, `qty_delta`, `reason`, `source_event_id?`, `approval_status`, `posted_event_id?`.
+
 ## Invariants
 
 - FK references must exist and be active when creating a new transaction.
@@ -60,3 +75,6 @@ FOH request does not directly close a bill, process payment or mutate stock; it 
 - Historical record uses snapshot/version where business meaning can change.
 - Queue estimates are historical/operational projections, not a promise about a specific guest departure.
 - Guest can leave queue and expired QR tokens cannot access a table session.
+- Operating-state and queue-policy changes are effective-dated and audited; history is not rewritten.
+- Posted ledger events are immutable; corrections reference the original event through a compensating event.
+- Notification failure never changes the source business status; delivery and retry are separately observable.

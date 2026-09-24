@@ -19,6 +19,10 @@ FOH Lite — Guest Access & Table Service
   Front-door QR: bàn/chờ/queue transparency
   Table QR: menu + add-on order + assistance
 
+Operations control plane
+  Branch/warehouse/table config + operating state
+  Queue policy + access scope + notification/task lifecycle
+
 BOH Core — Inventory & Wastage Control
   Master Data → PO → Goods Receipt → Stock
   → Branch Request → Daily Count → Wastage → Dashboard + AI
@@ -36,6 +40,7 @@ Integration layer
 3. FOH table QR for add-on ordering, request assistance and order status.
 4. Staff console for accepting/confirming QR requests and routing them to the appropriate station/work queue.
 5. Role-based data, audit, human approval for AI and clear service-status feedback.
+6. Minimal operations control plane for branch/table/queue configuration, token lifecycle and notification fallback.
 
 ### Not included in this MVP
 
@@ -95,6 +100,7 @@ Better FOH transparency
 - Add-on requests have a visible accepted/in-progress/completed status.
 - Staff spend less time answering “còn bàn không?” and “khi nào có thể gọi thêm?”.
 - QR requests never bypass staff authorization or create an untracked order.
+- Operating-state overrides, token revocations and notification failures are visible and auditable.
 
 ### BOH
 
@@ -102,6 +108,7 @@ Better FOH transparency
 - Demand spikes from busy locations are visible without silently changing stock.
 - Wastage includes quantity, reason and value.
 - AI suggestions require human approval.
+- Stock corrections and future integrations preserve immutable history and expose unresolved discrepancies.
 
 ### Product guardrail
 

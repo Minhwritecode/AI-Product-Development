@@ -23,6 +23,11 @@
 | Time budget | Khoảng thời gian khách có thể chờ trước khi quyết định join queue |
 | Guest session | Session không cần account, gắn với queue hoặc signed table token |
 | Staff fallback | Đường chuyển sang nhân viên khi khách không dùng/không thể dùng QR |
+| Operating state | Trạng thái nhận khách của branch: `OPEN`, `PAUSED`, `FULL`, `CLOSED` |
+| Queue policy | Cấu hình party-size, capacity, wait TTL, time budget và cách estimate queue |
+| Operational task | Việc cần staff xử lý, gắn với queue/request/exception và có owner/due time |
+| Compensating event | Ledger event điều chỉnh/reverse liên kết với event gốc mà không sửa lịch sử |
+| Quarantine | Vùng giữ event/import lỗi hoặc chưa map để review/replay, không mutate nghiệp vụ |
 
 ## Decisions
 
@@ -39,6 +44,10 @@
 | D-009 | Bổ sung FOH Lite QR vào MVP, không mở full FOH suite | Giải quyết hai pain point có tần suất cao mà vẫn kiểm soát scope | Accepted |
 | D-010 | Wait hiển thị range + timestamp, không cam kết thời điểm rời bàn cụ thể | Tránh false precision, bảo vệ privacy và kỳ vọng khách | Accepted |
 | D-011 | QR request phải được staff acknowledge/route | Giữ hospitality, chống request mồ côi và không tự tạo payment/stock mutation | Accepted |
+| D-012 | Operating state và queue policy là cấu hình có hiệu lực theo thời gian | QR cần nguồn dữ liệu chính thức; override phải giải thích được | Accepted |
+| D-013 | Notification là side effect độc lập với business status | Kênh gửi có thể lỗi; không được làm mất queue/request | Accepted |
+| D-014 | Ledger immutable; correction dùng compensating event | Giữ audit, reconciliation và lịch sử đáng tin | Accepted for Milestone 2 |
+| D-015 | Import/integration lỗi đi qua quarantine và replay idempotent | Ngăn dữ liệu chưa map hoặc retry làm sai stock | Accepted for Milestone 3 |
 
 ## Open decision template
 

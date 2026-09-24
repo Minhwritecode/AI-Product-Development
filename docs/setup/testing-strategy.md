@@ -18,6 +18,12 @@
 - AI malformed/low confidence không thể save trực tiếp.
 - Unauthorized user không gọi được transition command.
 - Audit event có actor/action/entity/request ID.
+- Operating-state override yêu cầu quyền/reason và không ghi đè lịch sử estimate.
+- Queue/table token hết hạn hoặc revoked không lộ session/table data; public endpoint rate limit hoạt động.
+- Notification retry bounded/idempotent; delivery failure không đổi queue/request status.
+- Partial receipt/transfer bảo toàn accepted/damaged/rejected/in-transit/backordered quantities.
+- Stock correction tạo compensating ledger event, không sửa event gốc; reconciliation chỉ ra before/after.
+- Import validation trả row-level errors; POS quarantine/replay không tạo duplicate khi dùng lại external event ID.
 
 ## Test data
 

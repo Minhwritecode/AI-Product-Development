@@ -398,6 +398,126 @@ SUBMITTED → ACKNOWLEDGED → ROUTED → PREPARING → SERVED
 - Có quick action gọi nhân viên, kể cả trong khi request đang pending.
 - Không yêu cầu khách mô tả allergy trong một note tự do duy nhất; dùng field riêng + warning.
 
+## F-12 Operational Configuration & Access
+
+### Mục tiêu
+
+Cung cấp nguồn cấu hình chính thức cho branch/warehouse/table/queue và quyền truy cập, để F-04, F-10 và F-11 không phụ thuộc vào dữ liệu hard-code.
+
+### Core resources
+
+`BranchConfig`, `WarehouseLocation`, `TableConfig`, `QueuePolicy`, `OperatingState`, `User`, `Role`, `BranchMembership`, `TableToken`.
+
+### API
+
+```text
+GET/PATCH /api/v1/branches/:id/config
+GET/POST  /api/v1/warehouses
+GET/POST  /api/v1/branches/:id/tables
+PATCH     /api/v1/branches/:id/operating-state
+GET/PATCH /api/v1/branches/:id/queue-policy
+POST      /api/v1/tables/:id/token/rotate
+POST      /api/v1/tables/:id/token/revoke
+GET/POST  /api/v1/users
+POST      /api/v1/users/:id/deactivate
+PUT       /api/v1/users/:id/memberships
+```
+
+### Rules
+
+- Branch/table/warehouse phải active mới được dùng cho transaction mới.
+- `OPEN`, `PAUSED`, `FULL`, `CLOSED` là explicit command; manual override cần reason và audit.
+- Queue policy có effective time, TTL và capacity; không sửa ngược estimate đã phát hành.
+- Token được lưu dạng hash/rotation metadata, không chứa PII; token revoked/expired trả lỗi generic.
+- User/role/membership mutation chỉ Admin được thực hiện; mọi endpoint vẫn re-check scope ở backend.
+
+## F-13 Notifications & Operational Task Inbox
+
+### Mục tiêu
+
+Biến notification và yêu cầu vận hành thành side effect có quan sát được, có owner và có đường retry/fallback.
+
+### Data model
+
+`Notification(id, recipient/session, channel, event_type, status, attempt_count, next_attempt_at, sent_at, expires_at)`.
+
+`OperationalTask(id, source_type, source_id, branch_id, priority, owner_id, due_at, status, resolution_note)`.
+
+### API
+
+```text
+GET  /api/v1/notifications/:id
+POST /api/v1/notifications/:id/retry
+GET  /api/v1/operational-tasks?status=&owner_id=&branch_id=
+POST /api/v1/operational-tasks/:id/claim
+POST /api/v1/operational-tasks/:id/route
+POST /api/v1/operational-tasks/:id/resolve
+```
+
+### Rules
+
+- Notification failure không rollback queue/request; retry bounded và idempotent theo event key.
+- Guest notification chỉ gửi sau consent; contact data có retention/expiry policy.
+- Task được tạo từ QR/queue/exception theo policy, không tự coi là resolved khi quá hạn.
+- Staff chỉ đọc/claim task trong branch scope; route/reject cần audit.
+
+## F-14 Stock Correction, Approval & Reconciliation
+
+### Mục tiêu
+
+Cho phép sửa sai có kiểm soát mà vẫn bảo toàn ledger, audit và khả năng đối soát.
+
+### State and commands
+
+```text
+Adjustment: DRAFT → SUBMITTED → APPROVED → POSTED
+                         └──────→ REJECTED
+Count/Wastage: SUBMITTED → APPROVED/REJECTED → LOCKED
+Shipment: APPROVED → IN_TRANSIT → RECEIVED | DISCREPANCY
+```
+
+```text
+POST /api/v1/stock-adjustments
+POST /api/v1/stock-adjustments/:id/submit
+POST /api/v1/stock-adjustments/:id/approve
+POST /api/v1/stock-adjustments/:id/reject
+POST /api/v1/stock-adjustments/:id/post
+POST /api/v1/stock-requests/:id/receive
+GET  /api/v1/reconciliation/inventory?from=&to=&location_id=
+```
+
+### Rules
+
+- Ledger event đã posted là immutable; adjustment/reversal tạo compensating event liên kết `source_event_id`.
+- Adjustment phải có reason, actor, source record; vượt threshold cần approver khác người tạo.
+- Partial receipt/shipment tách accepted, damaged, rejected, in-transit và backordered quantity.
+- Reconciliation hiển thị opening + ledger events + closing, unresolved discrepancy, owner và last action.
+
+## F-15 Import, Export & Integration Reliability
+
+### Mục tiêu
+
+Đưa dữ liệu thực tế vào hệ thống và xử lý lỗi tích hợp mà không làm sai tồn hoặc theoretical usage.
+
+### API
+
+```text
+POST /api/v1/imports/:resource/preview
+POST /api/v1/imports/:resource/commit
+GET  /api/v1/imports/:id/errors
+GET  /api/v1/exports/:resource
+GET  /api/v1/integrations/pos/batches/:id
+POST /api/v1/integrations/pos/batches/:id/replay
+GET  /api/v1/integrations/reconciliation?batch_id=
+```
+
+### Rules
+
+- Preview bắt buộc kiểm tra schema, unit, reference, duplicate và branch scope trước commit.
+- Commit có row-level error report và transaction policy rõ; không silently bỏ dòng lỗi.
+- Unmapped/invalid POS event vào quarantine; replay theo external event ID và không duplicate ledger/usage.
+- Export giữ filter, authorization scope, timezone, `as_of` và liên kết source record.
+
 ## Cross-cutting UI requirements
 
 - Responsive cho desktop/tablet ở warehouse/branch.
@@ -406,3 +526,6 @@ SUBMITTED → ACKNOWLEDGED → ROUTED → PREPARING → SERVED
 - Hiển thị status badge, actor, timestamp, source record.
 - Không dùng màu làm tín hiệu duy nhất; low stock/wastage cần text/icon.
 - FOH QR có staff fallback, privacy-safe status và accessible form; QR là lựa chọn bổ trợ cho hospitality, không phải rào cản.
+- Admin/manager screens phải có operating state, policy effective time, actor/reason và audit link.
+- Inbox phải phân biệt unread/overdue/failed; retry action hiển thị lần thử cuối và lý do lỗi.
+- Correction/reconciliation screens phải hiển thị record gốc, compensating event, before/after và quyền approve.

@@ -332,6 +332,104 @@ Là khách không muốn/không thể dùng QR, tôi muốn vẫn nhận đượ
 - Form dùng visible labels, 44px touch target, body text ≥16px, status không chỉ dùng màu.
 - Không ép khách tải app, tạo tài khoản hoặc cung cấp dữ liệu không cần thiết.
 
+## Operational configuration & access
+
+### US-OP-01 — Cấu hình địa điểm và operating state (MVP)
+
+Là Admin/Manager, tôi muốn cấu hình branch, warehouse, table capacity, service hours và trạng thái nhận khách để các flow hiển thị đúng.
+
+**Acceptance criteria**
+
+- Branch/warehouse/table có timezone, status và scope hợp lệ; table label/capacity không trống hoặc âm.
+- Manager có thể chuyển `OPEN/PAUSED/FULL/CLOSED`; `PAUSED/FULL/CLOSED` hiển thị lý do hoặc hướng dẫn staff.
+- Cập nhật không làm thay đổi lịch sử queue estimate; có actor, reason và timestamp trong audit.
+
+### US-OP-02 — Queue policy và QR token (MVP)
+
+Là Admin, tôi muốn cấu hình queue policy và thu hồi/đổi table QR token để kiểm soát dữ liệu guest.
+
+**Acceptance criteria**
+
+- Policy validate party-size range, queue capacity, wait TTL, time-budget options và service hours.
+- Token rotate/revoke làm token cũ không truy cập được session; lỗi token không tiết lộ thông tin bàn.
+- Policy/token thay đổi có effective time và audit.
+
+### US-OP-03 — Quản trị user và branch scope (MVP)
+
+Là Admin, tôi muốn tạo/deactivate user, gán role và branch membership để quyền truy cập không bị mở rộng ngoài phạm vi.
+
+**Acceptance criteria**
+
+- User inactive không đăng nhập/không tạo mutation mới; session bị revoke theo policy.
+- Branch user không đọc/sửa dữ liệu branch khác dù đổi `branch_id` trên request.
+- Mọi thay đổi role/membership có before/after và actor trong audit.
+
+## Notifications & operational controls
+
+### US-NF-01 — Queue/request notification (MVP)
+
+Là guest/staff, tôi muốn biết notification đã được gửi hay thất bại và vẫn có đường fallback.
+
+**Acceptance criteria**
+
+- Chỉ gửi khi guest opt-in; delivery có `PENDING/SENT/FAILED/EXPIRED`, channel và timestamp.
+- Retry cùng event không gửi trùng vượt policy; failure không đổi trạng thái queue/request.
+- UI luôn giữ queue code/request status và CTA `Hỏi nhân viên` khi notification lỗi.
+
+### US-NF-02 — Staff task inbox (SHOULD)
+
+Là Host/Manager/Warehouse Admin, tôi muốn thấy task chưa xử lý theo owner/due time để request và exception không bị bỏ quên.
+
+**Acceptance criteria**
+
+- Task có source record, priority, owner, due time và trạng thái.
+- Có thể claim/route/resolve; thao tác có audit và không vượt branch scope.
+- Task overdue được đánh dấu, không tự động coi là hoàn thành.
+
+## Controlled correction & reconciliation
+
+### US-CTL-01 — Stock adjustment/reversal (SHOULD)
+
+Là Warehouse Admin, tôi muốn sửa discrepancy bằng adjustment có lý do mà không sửa lịch sử gốc.
+
+**Acceptance criteria**
+
+- Adjustment yêu cầu ingredient/location, quantity, reason, source record và note/evidence nếu policy yêu cầu.
+- Ledger gốc immutable; correction tạo compensating event và audit.
+- Không cho kết quả âm nếu policy MVP không cho âm; idempotency retry không tạo event thứ hai.
+
+### US-CTL-02 — Partial receipt và transfer acceptance (SHOULD)
+
+Là Warehouse/Branch Manager, tôi muốn phân biệt hàng nhận đủ, thiếu, hỏng, đang chuyển và branch đã nhận.
+
+**Acceptance criteria**
+
+- Một PO/request có thể có nhiều receipt/shipment theo policy; tổng quantity được kiểm soát.
+- Damaged/rejected/backordered/in-transit có quantity và reason riêng.
+- Branch acceptance mới chuyển shipment từ `IN_TRANSIT` sang `RECEIVED`; discrepancy mở task/review.
+
+### US-CTL-03 — Count/wastage approval và khóa kỳ (SHOULD)
+
+Là Owner/Manager, tôi muốn duyệt và khóa count/wastage sau khi review.
+
+**Acceptance criteria**
+
+- Record có `DRAFT/SUBMITTED/APPROVED/REJECTED/LOCKED` theo policy.
+- Reject bắt buộc reason; record locked chỉ sửa bằng correction event.
+- Dashboard phân biệt submitted chưa duyệt và số liệu đã approved.
+
+## Import/export & integration operations
+
+### US-INT-03 — Import/export có kiểm soát (SHOULD)
+
+Là Admin/Owner, tôi muốn nạp dữ liệu theo template và xuất báo cáo theo quyền để giảm nhập liệu thủ công.
+
+**Acceptance criteria**
+
+- Import có preview, schema/unit validation, row-level error và không ghi một phần ngoài transaction policy.
+- Export giữ filter/scope, timezone, `as_of` và source record.
+- POS batch lỗi/unmapped vào quarantine; replay cùng external event ID không duplicate.
+
 ## Story readiness checklist
 
 - [ ] Actor và scope branch rõ.

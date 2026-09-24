@@ -139,3 +139,18 @@ Request có cooldown để tránh gửi trùng và có cancel trong thời gian 
 `front_qr_scan`, `language_selected`, `availability_viewed`, `wait_budget_selected`, `queue_joined`, `queue_left`, `queue_called`, `table_qr_opened`, `menu_viewed`, `addon_cart_started`, `addon_submitted`, `addon_confirmed_by_staff`, `assistance_requested`, `qr_error`.
 
 Không thu thập dữ liệu cá nhân ngoài mục đích thông báo và vận hành queue.
+
+## 8. Operational controls and privacy lifecycle
+
+- Branch phải có operating state rõ: `OPEN`, `PAUSED`, `FULL`, `CLOSED`; `PAUSED/FULL/CLOSED` luôn kèm next action cho guest.
+- Queue policy phải khai báo capacity, party-size range, wait estimate TTL, time-budget options và service hours; policy có effective time.
+- Host/Manager có thể override state/estimate nhưng phải nhập reason; guest chỉ thấy kết quả privacy-safe, không thấy dữ liệu khách khác.
+- Guest session và notification contact có expiry/retention; guest có thể leave queue và chấm dứt session theo policy.
+- QR/table endpoint cần rate limit, idempotency cho submit và response generic cho token sai/hết hạn; không tạo queue/request giả khi timeout.
+- Notification là best-effort: nếu gửi thất bại, guest vẫn dùng queue code/request status và CTA hỏi nhân viên.
+
+### Bổ sung analytics vận hành
+
+`queue_state_changed`, `queue_estimate_refreshed`, `queue_notification_sent`, `queue_notification_failed`, `queue_staff_override`, `qr_request_acknowledged`, `qr_request_routed`, `qr_request_rejected`, `qr_request_completed`, `staff_fallback_used`.
+
+Mỗi event vận hành cần `event_id`, `occurred_at`, `branch_id`, `source_id`, `actor_type` và outcome; không ghi raw phone/email vào analytics.

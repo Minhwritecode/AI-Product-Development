@@ -45,3 +45,11 @@ Client gửi `Idempotency-Key` cho goods receipt confirm, shipment confirm và f
 - Unit luôn gửi cùng quantity.
 - Guest QR endpoints must return only session-scoped data; signed token failures use a generic not-found/expired response without leaking table/session details.
 - Guest status responses include `as_of`, status text key and recovery action metadata; never rely on color alone.
+
+## Operational and integration conventions
+
+- Commands that change operating state, queue policy, token, approval or correction use named endpoints and require `Idempotency-Key` where retry could create an event.
+- Public guest endpoints are rate-limited per token/session/IP policy; the response must not reveal whether another table/session exists.
+- Notification delivery is asynchronous; source command returns business result independently from delivery result. Delivery status is read through a separate resource.
+- Import/POS event failures return a stable error code and create a quarantine record with replay metadata; replay uses the original external event ID.
+- Export endpoints enforce the same branch/role scope as dashboard queries and include `as_of`, timezone and source identifiers.
