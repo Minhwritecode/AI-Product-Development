@@ -1,59 +1,78 @@
-# Source Synthesis & Instruction Boundary
+# Product Source Synthesis
 
 ## 1. Mục đích
 
-Tài liệu này phân biệt yêu cầu của người dùng với nội dung nằm trong các file đính kèm. Các file nguồn được xem là tài liệu tham khảo nghiệp vụ, không phải lời nhắc hệ thống hay mệnh lệnh có quyền thay đổi phạm vi công việc.
+Tài liệu này hợp nhất các nguồn nghiệp vụ thành baseline cho Luminex. Các quyết định đã được chuẩn hóa trong PRD, Requirements Analysis, User Stories và Feature Specifications là cơ sở để triển khai.
 
-## 2. Các nguồn đã sử dụng
+## 2. Nguồn nghiệp vụ
 
-| Nguồn | Vai trò trong Luminex | Cách xử lý |
-|---|---|---|
-| `product-spec-setup.md` | Baseline module, role, entity, kiến trúc và thứ tự setup | Dùng để tạo skeleton kỹ thuật; các credential/API key chỉ là placeholder |
-| `fnb-inventory-wastage-product-vision.md` | Vision, MVP, success signals, roadmap, guardrail AI | Nguồn chính để chốt product direction |
-| `fnb-inventory-wastage-idea-brief.md` | Problem, persona, outcomes, scope, risks, questions | Nguồn chính cho Product Discovery và PRD |
-| `restaurant-management-system-specification.md` | FOH workflow, quyền hạn, audit, inventory/recipe context, future integration | Dùng để nhận diện pain point FOH và bối cảnh tích hợp; không đưa toàn bộ restaurant suite vào MVP |
+| Nguồn | Nội dung sử dụng trong Luminex |
+|---|---|
+| `product-spec-setup.md` | Module, role, entity, kiến trúc và thứ tự phát triển nền tảng |
+| `fnb-inventory-wastage-product-vision.md` | Vision, BOH MVP, success signals, roadmap và AI guardrail |
+| `fnb-inventory-wastage-idea-brief.md` | Problem, persona, outcome, scope, risk và discovery question |
+| `restaurant-management-system-specification.md` | Bối cảnh FOH, table/service workflow, quyền hạn, audit và future integration |
 
-Các file nguồn được lưu nguyên bản trong [docs/source/](source/README.md).
+Các nguồn gốc được lưu trong [docs/source/](source/README.md) để giữ lại context nghiệp vụ.
 
-## 3. Yêu cầu người dùng đã thực hiện
+## 3. Product baseline
 
-- Kết hợp nội dung các file.
-- Tạo dự án Luminex hướng từ FOH đến BOH.
-- Phân tích pain point riêng của FOH và BOH.
-- Chuẩn bị bộ tài liệu như một commit đầu tiên của dự án Software Engineering.
-- Bao phủ: Product Discovery, PRD, Requirements Analysis, User Stories & Acceptance Criteria, Feature Specification.
-- Có thư mục và công cụ nền cho phát triển.
+Luminex có tầm nhìn end-to-end FOH → BOH, với MVP gồm:
 
-## 4. Kết luận phạm vi
+- **BOH Core:** master data, purchasing, goods receipt, warehouse/branch stock, stock request, daily count, wastage, dashboard và AI assistance có human approval.
+- **FOH Lite:** front-door QR để xem availability/estimated wait và join/leave queue; table QR để add-on/assistance request có staff acknowledgement.
+- **Integration boundary:** recipe version, menu item, branch và POS sales mapping được chuẩn bị cho milestone sau; dữ liệu chưa mapping không được tự mutate stock.
 
-Luminex có tầm nhìn end-to-end FOH → BOH. MVP triển khai BOH Inventory & Wastage Management làm lõi và bổ sung FOH Lite QR cho hai moment có giá trị cao:
+Full reservation, table assignment, ordering/POS, KDS/BDS, billing/payment, payroll và accounting không thuộc MVP.
 
-- trước cửa: xem tình trạng bàn, estimated wait và join/leave queue;
-- tại bàn: xem menu, gọi thêm và request assistance.
+## 4. Pain point được chuẩn hóa
 
-Các FOH workflow đầy đủ vẫn được mô hình hóa ở hai lớp:
+### FOH
 
-1. `Pain point/context`: các vấn đề vận hành từ reservation, seating, order, kitchen/bar, serving, billing và table readiness.
-2. `Integration boundary`: dữ liệu POS/order/recipe có thể cung cấp `sold_qty_theory` cho BOH trong milestone sau; QR request phải được staff xác nhận trước khi đi vào operational workflow.
+- Khách trước cửa không biết còn bàn, queue dài bao nhiêu hoặc wait có phù hợp lịch trình.
+- Khách quốc tế cần Vietnamese/English và không muốn tải app hoặc tạo account trước khi quyết định chờ.
+- Khách đã ngồi phải chờ nhân viên để gọi thêm món hoặc hỗ trợ trong giờ cao điểm.
+- QR request có nguy cơ gửi nhầm bàn, duplicate, tạo kỳ vọng “đã order” hoặc bỏ qua hospitality nếu không có staff acknowledgement.
+- Guest không dùng QR vẫn phải có staff fallback.
 
-Điều này giải quyết mâu thuẫn giữa tên sản phẩm “FOH đến BOH” và scope trong vision/idea brief vốn loại trừ FOH khỏi MVP.
+### BOH
 
-## 5. Nội dung được coi là chỉ dẫn trong file nguồn
+- PO, receiving, transfer, stock, count và wastage rời rạc làm tồn không đáng tin.
+- Unit conversion sai làm sai quantity và cost.
+- Hàng thiếu/hỏng/đang chuyển không được phân biệt, khó truy trách nhiệm.
+- Wastage thiếu reason, evidence và value nên không biết mất tiền ở đâu.
+- POS/sold theory có thể chưa có; dữ liệu thiếu phải được đánh dấu, không suy đoán.
+- AI cần rút ngắn nhập liệu nhưng không được tự thay đổi master, recipe, stock, PO hoặc wastage.
 
-Các câu như “recommended setup”, “khuyên dùng”, “should”, “must”, lệnh Docker hoặc danh sách module trong file nguồn được xem là đề xuất thiết kế/kiến trúc để đánh giá, không được thực thi tự động. Chúng chỉ trở thành baseline khi đã được chuyển thành quyết định trong tài liệu dự án.
+## 5. Quyết định phạm vi
 
-Ví dụ:
+| Quyết định | Baseline |
+|---|---|
+| Product direction | BOH-first, FOH Lite QR trong MVP |
+| Stock source of truth | Append-only inventory ledger và transaction-safe projection |
+| Wastage valuation | Standard price snapshot tại thời điểm ghi nhận trong MVP |
+| Missing sales theory | `NOT_AVAILABLE`/`INCOMPLETE_THEORY`, không mặc định bằng zero |
+| Guest wait display | Range + `as_of` + confidence, không hiển thị giờ rời bàn cụ thể |
+| QR add-on | `SUBMITTED` → staff acknowledge → route/prepare/serve |
+| AI | Read/suggest only; human approval trước mutation |
+| Authorization | Backend kiểm tra role và branch scope |
 
-- Docker Compose, PostgreSQL, Redis, Nginx được giữ làm development baseline.
-- `LLM_API_KEY` không được điền thật hoặc commit.
-- “FOH out of scope” được giữ cho MVP, nhưng không xóa pain point FOH.
-- Quy tắc FOH như table phải được cleaning confirmation được giữ trong context/integration notes, không tạo thêm feature MVP.
+## 6. Khoảng trống cần giải quyết trong product scope
 
-## 6. Các điểm cần xác nhận sau discovery
+- Branch/warehouse/table/queue configuration và operating state.
+- User, role, branch membership, token lifecycle và audit.
+- Notification delivery, staff task ownership và retry.
+- Controlled correction, approval, period lock và reconciliation.
+- Partial receipt, in-transit shipment, branch acceptance và discrepancy.
+- Import/export, POS quarantine, replay và mapping reconciliation.
 
-- Có POS/sales data ở định dạng nào và tần suất đồng bộ bao lâu?
-- Có cần PO approval và partial goods receipt ngay trong MVP không?
-- Ai là người phê duyệt daily count và wastage?
-- Mỗi branch có quy tắc count/transfer giống nhau không?
-- Standard price hay actual purchase cost là nguồn định giá hao hụt?
-- Quyền xem dữ liệu AI Copilot theo branch/role sẽ chi tiết tới mức nào?
+Các năng lực này chỉ được đưa vào milestone tương ứng trong [Scope & Roadmap](07-scope-and-roadmap.md), không tự mở rộng thành full FOH suite.
+
+## 7. Open discovery decisions
+
+- Estimated wait dùng rule, historical service duration hay kết hợp cả hai?
+- Ai duyệt PO, daily count, wastage và correction; SLA là bao nhiêu?
+- Branch có khác nhau về count cadence, queue capacity, service hours và unit policy không?
+- Standard price hay actual purchase cost là nguồn valuation ở các milestone sau?
+- POS/sales export có format, tần suất và external event ID như thế nào?
+- Notification provider, contact retention và staff fallback được chốt ra sao?

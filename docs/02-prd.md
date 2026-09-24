@@ -214,9 +214,9 @@ MVP chỉ được coi là đủ khi:
 - Actual purchase cost vs standard price: MVP dùng standard price, milestone 2 xem xét actual cost.
 - POS integration contract: chưa khóa trong MVP; xem architecture data model.
 
-## 11. PRD Addendum — Skill-aligned FOH → BOH Delivery Specification
+## 11. FOH → BOH Delivery Specification
 
-Phần này là phần bổ sung theo cấu trúc của skill `prd`. Toàn bộ nội dung từ mục 1 đến mục 10 ở trên được giữ nguyên. Các mã `PRD-US-*` và `PRD-FR-*` trong addendum này độc lập với mã ở các tài liệu khác để không làm thay đổi baseline hiện có.
+Phần này hợp nhất yêu cầu delivery cho FOH Lite và BOH Core. Các mã `PRD-US-*` và `PRD-FR-*` trong phần này được dùng để trace tới requirements, user stories, feature specifications và test cases.
 
 ### 11.1 Introduction / Overview
 
@@ -241,7 +241,7 @@ Mục tiêu của addendum là chuyển các pain point FOH và BOH thành các 
 
 ### 11.3 User Stories
 
-Các story UI phải được kiểm tra trên mobile và desktop. Story có giao diện phải bao gồm tiêu chí `Verify in browser using dev-browser skill`; nếu môi trường không có dev-browser, dùng browser automation tương đương và ghi rõ trong test report.
+Các story UI phải được kiểm tra trên mobile, tablet và desktop, bao gồm responsive layout, keyboard/focus, readable contrast, loading/error state và staff fallback khi phù hợp.
 
 #### FOH guest access
 
@@ -254,7 +254,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] QR mở được trang mobile-first với Vietnamese và English.
 - [ ] Trang hiển thị `available now`, `estimated wait`, `queue status`, `as_of` và limitation nếu dữ liệu stale.
 - [ ] Guest không cần đăng nhập hoặc tải app để xem kết quả.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-002: Chọn language, party size và time budget
 
@@ -265,7 +264,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Language selector xuất hiện trước nội dung dài.
 - [ ] Party size dùng input dễ chạm, có label rõ và không cho giá trị không hợp lệ.
 - [ ] Time budget có các khoảng `≤15 phút`, `15–30 phút`, `30–60 phút`, `Không chắc`.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-003: Join và leave queue
 
@@ -277,7 +275,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Retry cùng idempotency key không tạo queue entry thứ hai.
 - [ ] Guest nhìn thấy CTA `Rời hàng chờ` và có thể rời queue mà không cần liên hệ staff.
 - [ ] Nếu guest chọn notification, phone/email mới được yêu cầu; nếu không thì không bắt buộc.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-004: Host quản lý queue
 
@@ -289,7 +286,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Host có thể call, seat, cancel hoặc mark expired theo state machine hợp lệ.
 - [ ] Override status cần reason và tạo audit event.
 - [ ] Queue entry stale/overdue không tự động chuyển thành seated.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-005: Xác nhận đúng table QR
 
@@ -300,7 +296,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Landing page hiển thị table label thân thiện trước khi guest gửi request.
 - [ ] Token sai, hết hạn hoặc revoked hiển thị recovery path mà không lộ session data.
 - [ ] Guest không xem được order, PII hoặc request của bàn khác.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-006: Tạo add-on request
 
@@ -312,7 +307,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Confirmation hiển thị table, item, quantity và estimated preparation range.
 - [ ] Submit tạo trạng thái `SUBMITTED` hoặc `Đã gửi`, không tự coi là đã phục vụ.
 - [ ] Item unavailable được báo rõ và có alternative hoặc staff help.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-007: Theo dõi và cancel request
 
@@ -323,7 +317,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Status hiển thị tối thiểu `Đã nhận`, `Đang chuẩn bị`, `Đã phục vụ`, `Từ chối/Cần nhân viên`.
 - [ ] Request có timestamp và message recovery khi timeout.
 - [ ] Guest chỉ cancel được trong policy window; request đã route/prepare phải chuyển sang staff help.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-008: Staff acknowledge, route hoặc reject request
 
@@ -334,7 +327,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Staff thấy table, item, quantity, note, created time và requested action.
 - [ ] Staff có thể acknowledge, route, reject hoặc mark complete theo trạng thái hợp lệ.
 - [ ] Reject bắt buộc có reason; mọi state change có actor và timestamp.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-009: Staff fallback và accessibility
 
@@ -345,7 +337,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Front-door và table QR flow đều có CTA `Hỏi nhân viên`.
 - [ ] Form có visible labels, body text tối thiểu 16px, touch target tối thiểu 44×44px.
 - [ ] Status không chỉ dựa vào màu; có text/icon và `aria-live` khi phù hợp.
-- [ ] Verify in browser using dev-browser skill.
 
 #### BOH operations
 
@@ -358,7 +349,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Chỉ PO ở trạng thái có thể receive mới được chọn.
 - [ ] UI hiển thị ordered, previously received, current receipt, total received và discrepancy.
 - [ ] Quantity âm bị từ chối; shortage/over-delivery cần note.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-011: Cập nhật stock transaction-safe
 
@@ -381,7 +371,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Branch manager chỉ tạo request cho branch được gán.
 - [ ] Request gồm ingredient, quantity, urgency và needed date.
 - [ ] Submit chuyển state sang `Requested` và không trừ warehouse stock.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-013: Branch submit daily count
 
@@ -392,7 +381,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Count thuộc đúng branch/date/ingredient và không duplicate active record.
 - [ ] UI preview công thức `opening + received - sold - closing` trước submit.
 - [ ] Thiếu `sold_qty_theory` được hiển thị là unavailable, không tự mặc định bằng zero.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-014: Ghi wastage quantity, reason và value
 
@@ -403,7 +391,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Wastage quantity phải lớn hơn zero và reason là bắt buộc.
 - [ ] Value dùng standard price snapshot tại thời điểm record.
 - [ ] Record liên kết được với branch, ingredient, daily count và actor.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-015: Owner xem dashboard và drill-down
 
@@ -414,7 +401,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Dashboard có stock, low-stock, open PO, pending request, variance và wastage value.
 - [ ] Filter theo date range, branch và ingredient hoạt động đúng scope.
 - [ ] KPI có `as_of` và drill-down tới source record.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-016: AI recipe suggestion có approval
 
@@ -426,7 +412,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Unknown ingredient/unit bị đánh dấu và không tự map mơ hồ.
 - [ ] User có thể edit/delete/add line trước khi approve.
 - [ ] Chưa approve thì database recipe không thay đổi.
-- [ ] Verify in browser using dev-browser skill.
 
 #### Platform and operational control
 
@@ -440,7 +425,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Host/manager có thể đặt `OPEN`, `PAUSED`, `FULL` hoặc `CLOSED` với reason.
 - [ ] Table QR token có thể rotate/revoke; token revoked không truy cập session cũ.
 - [ ] Thay đổi policy/state có actor, timestamp và audit event.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-018: Notification và task inbox
 
@@ -451,7 +435,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] Staff thấy queue cần gọi, QR request chưa acknowledge, overdue stock request và exception trong phạm vi quyền.
 - [ ] Notification delivery có `PENDING`, `SENT`, `FAILED`, `EXPIRED`.
 - [ ] Notification failure không thay đổi business status; guest vẫn xem được queue/request status.
-- [ ] Verify in browser using dev-browser skill.
 
 ### PRD-US-019: Correction và reconciliation
 
@@ -474,7 +457,6 @@ Các story UI phải được kiểm tra trên mobile và desktop. Story có gia
 - [ ] POS event chưa map hoặc sai schema vào quarantine, không tự trừ stock.
 - [ ] Replay dùng external event ID/idempotency và không tạo duplicate.
 - [ ] Export có filter, permission scope, `as_of` và source record.
-- [ ] Verify in browser using dev-browser skill.
 
 ### 11.4 Functional Requirements
 
@@ -641,12 +623,11 @@ Các open question cũ ở mục 10 vẫn giữ nguyên. Các câu hỏi bổ su
 
 - [ ] `PRD-US-001`–`PRD-US-020` được map tới feature hoặc ticket implementation.
 - [ ] `PRD-FR-001`–`PRD-FR-050` không trùng ID với requirement hiện có.
-- [ ] Mọi UI story có browser verification criterion.
+- [ ] Mọi UI story có responsive, accessibility và state verification.
 - [ ] Mọi stock/queue/request mutation có idempotency và audit test.
 - [ ] Traceability được kiểm tra với [Requirements Analysis](03-requirements-analysis.md), [User Stories & Acceptance](04-user-stories-acceptance.md) và [Feature Specifications](05-feature-specifications.md).
-- [ ] `git diff --check` pass.
-- [ ] Typecheck, lint và test pass sau khi implementation bắt đầu.
-- [ ] Nội dung cũ trước mục 11 không bị sửa, xóa hoặc đổi tên.
+- [ ] Typecheck, lint, unit/integration test và acceptance test pass trước khi release.
+- [ ] Tài liệu, API contract, data model và migration được cập nhật đồng bộ khi behavior thay đổi.
 
 ### 11.11 Business-level FOH → BOH clarification
 

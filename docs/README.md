@@ -27,7 +27,7 @@
 
 ## UI/UX reference
 
-- [Stitch UI/UX References](uiux/README.md) — 20 màn hình FOH/BOH, design system, prototype HTML và ảnh tham chiếu; chưa phải frontend runtime.
+- [Luminex UI/UX Reference](uiux/README.md) — 20 màn hình FOH/BOH, scope mapping và nguyên tắc UX sản phẩm.
 
 ## Nguồn đầu vào
 
