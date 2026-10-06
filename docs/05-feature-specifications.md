@@ -529,3 +529,260 @@ GET  /api/v1/integrations/reconciliation?batch_id=
 - Admin/manager screens phải có operating state, policy effective time, actor/reason và audit link.
 - Inbox phải phân biệt unread/overdue/failed; retry action hiển thị lần thử cuối và lý do lỗi.
 - Correction/reconciliation screens phải hiển thị record gốc, compensating event, before/after và quyền approve.
+
+## Production feature specifications
+
+Các feature F-16 trở đi mở rộng Luminex từ BOH Core + FOH Lite thành full
+restaurant operations production. Chúng dùng chung auth, branch scope, audit,
+idempotency và API conventions ở phần đầu file.
+
+## F-16 Reservation, Walk-in & Queue
+
+### State machine
+
+```text
+Reservation: DRAFT → PENDING → CONFIRMED → ARRIVED → SEATED → COMPLETED
+                         └→ CANCELLED / NO_SHOW
+WalkIn/Queue: WAITING → CALLED → SEATED → COMPLETED
+                    └→ LEFT / EXPIRED / CANCELLED
+```
+
+### API
+
+```text
+GET  /api/v1/availability?branch_id=&date=&party_size=
+POST /api/v1/reservations
+POST /api/v1/reservations/:id/confirm
+POST /api/v1/reservations/:id/arrive
+POST /api/v1/reservations/:id/cancel
+POST /api/v1/reservations/:id/no-show
+POST /api/v1/queues
+POST /api/v1/queues/:id/call
+POST /api/v1/queues/:id/leave
+```
+
+### Rules
+
+- Availability tính theo service hours, table capacity, holds, blocked tables và
+  policy; không assign table dirty/maintenance.
+- Reservation contact/PII chỉ hiện đúng scope; no-show/cancel/reschedule cần
+  policy và audit.
+- Front-door QR và Host walk-in dùng chung queue policy/read model.
+- Wait là range + `as_of`; không cam kết table turnover của khách cụ thể.
+
+## F-17 Floor, Table, Seating & Cleaning
+
+### Table states
+
+```text
+AVAILABLE → HELD/RESERVED → READY → IN_USE → PAYMENT_PENDING
+           → WAITING_CLEANING → CLEANING → READY
+```
+
+### API
+
+```text
+GET  /api/v1/branches/:branch_id/tables
+POST /api/v1/service-sessions
+POST /api/v1/service-sessions/:id/seat
+POST /api/v1/service-sessions/:id/transfer
+POST /api/v1/service-sessions/:id/merge
+POST /api/v1/tables/:id/cleaning-tasks
+POST /api/v1/cleaning-tasks/:id/claim
+POST /api/v1/cleaning-tasks/:id/complete
+```
+
+### Rules
+
+- Seating tạo `ServiceSession` và actor/table/party snapshot.
+- Transfer/merge giữ source history, order/bill links và không clone financial
+  record.
+- Paid session tạo cleaning task; table chỉ `READY` sau staff confirmation.
+- Cleaning priority được nâng khi có waiting guest nhưng không bypass vệ sinh.
+
+## F-18 Menu, Price, Modifier & Station Catalog
+
+### Core model
+
+`MenuCategory`, `MenuItem`, `MenuVersion`, `ModifierGroup`, `ModifierOption`,
+`Allergen`, `RecipeVersion`, `StationAssignment`, `AvailabilityWindow`.
+
+### API
+
+```text
+GET/POST /api/v1/menu/categories
+GET/POST /api/v1/menu/items
+PATCH    /api/v1/menu/items/:id
+POST     /api/v1/menu/items/:id/publish
+POST     /api/v1/menu/items/:id/unpublish
+GET/PUT  /api/v1/menu/items/:id/modifiers
+GET/PUT  /api/v1/menu/items/:id/station
+```
+
+### Rules
+
+- Published menu/price/modifier có effective time; order lưu snapshot.
+- Item unavailable không thể gửi mới; item đã gửi vẫn giữ lịch sử và cần
+  staff-recovery nếu kitchen/bar không thể làm.
+- Allergen là field riêng, không phụ thuộc note tự do.
+- Recipe đổi version không được tính lại sales lịch sử.
+
+## F-19 Service Session & Order Entry
+
+### State machine
+
+```text
+ServiceSession: OPEN → ACTIVE → PAYMENT_REQUESTED → CLOSED
+Order: DRAFT → SENT → IN_PROGRESS → PARTIALLY_SERVED → SERVED → CLOSED
+       └→ CANCELLED (authorized reason)
+```
+
+### API
+
+```text
+GET  /api/v1/service-sessions/:id
+POST /api/v1/service-sessions/:id/orders
+PATCH /api/v1/orders/:id
+POST /api/v1/orders/:id/send
+POST /api/v1/order-lines/:id/cancel
+POST /api/v1/service-sessions/:id/payment-request
+```
+
+### Rules
+
+- Server chỉ đọc/ghi session được assign hoặc branch scope theo policy.
+- Draft order có round, quantity, modifier, item/allergen note và course policy.
+- `send` tạo ticket snapshot; sau send không sửa im lặng, thay đổi phải command
+  có reason và audit.
+- Guest table QR add-on đi qua cùng order/request boundary nhưng bắt đầu ở
+  `SUBMITTED`, cần staff acknowledge trước khi thành operational order.
+
+## F-20 Kitchen & Bar Station Tickets
+
+### State machine
+
+```text
+NEW → ACCEPTED → PREPARING → READY → PICKED_UP → SERVED
+ └→ DELAYED / REJECTED (reason)
+```
+
+### API
+
+```text
+GET  /api/v1/stations/:station/tickets?status=
+POST /api/v1/tickets/:id/accept
+POST /api/v1/tickets/:id/start
+POST /api/v1/tickets/:id/delay
+POST /api/v1/tickets/:id/complete
+POST /api/v1/tickets/:id/reject
+POST /api/v1/tickets/:id/pick-up
+```
+
+### Rules
+
+- Kitchen chỉ thấy food ticket; Bar chỉ thấy beverage ticket; Server thấy task
+  handoff cần thiết; payment data không được leak.
+- Delay/reject cần reason và tạo task/notification cho Server/Manager.
+- Station không tự sửa order price, payment hoặc inventory ledger.
+- Multi-station item được biểu diễn bằng ticket components, không tạo duplicate order.
+
+## F-21 Serving & Additional Orders
+
+### Mục tiêu
+
+Theo dõi từ station hoàn tất tới server nhận và phục vụ, đồng thời giữ các round
+order riêng để đo delay và hiểu trải nghiệm khách.
+
+### Rules
+
+- Ghi `prepared_at`, `picked_up_at`, `served_at`, `delay_reason` và actor.
+- `serve together`/course policy giữ item chờ hợp lệ; không đánh mất ticket đã ready.
+- Additional order tạo round mới trong cùng session/bill và route lại theo station.
+- Guest/Server nhận status guest-safe; không hứa thời gian nếu chưa có estimate.
+
+## F-22 Billing, Discount & Split Bill
+
+### State machine
+
+```text
+Bill: OPEN → REVIEW → PARTIALLY_PAID → PAID
+      └→ VOIDED / REFUND_PENDING
+```
+
+### API
+
+```text
+POST /api/v1/service-sessions/:id/bills
+GET  /api/v1/bills/:id
+POST /api/v1/bills/:id/review
+POST /api/v1/bills/:id/apply-discount
+POST /api/v1/bills/:id/split
+POST /api/v1/bills/:id/void
+```
+
+### Rules
+
+- Bill snapshot item price, tax, service charge, discount và source order line.
+- Split theo item/guest/equal/custom phải bảo toàn tổng và không tạo orphan line.
+- Discount vượt threshold cần Manager approval; paid bill không PATCH trực tiếp.
+- Void/refund là compensating financial event, có original reference, reason và audit.
+
+## F-23 Payments, Refunds, Receipts & End-of-Day
+
+### Payment lifecycle
+
+```text
+INITIATED → PENDING → SUCCEEDED
+                    └→ FAILED / CANCELLED / REFUNDED
+```
+
+### API
+
+```text
+POST /api/v1/bills/:id/payments
+POST /api/v1/payments/:id/cancel
+POST /api/v1/payments/:id/refund
+POST /api/v1/payments/webhooks/:provider
+GET  /api/v1/branches/:id/end-of-day/reconciliation
+POST /api/v1/branches/:id/end-of-day/close
+```
+
+### Rules
+
+- Cash/card/transfer/e-wallet dùng provider adapter và external reference.
+- Webhook/retry cùng reference không double-post; timeout giữ `PENDING` để reconcile.
+- Payment details/token không ghi log; receipt chỉ gửi channel đã consent/config.
+- Branch close yêu cầu reconcile unpaid/void/refund và payment totals; close không
+  xóa hoặc sửa lịch sử.
+
+## F-24 Staff, Shift & Operational Assignment
+
+### Core model
+
+`StaffProfile`, `RoleAssignment`, `Shift`, `ShiftAssignment`, `AttendanceEvent`,
+`StationAssignment`, `OperationalTask`.
+
+### Rules
+
+- Shift/assignment là operational scope, không thay thế payroll.
+- Host/Server/Kitchen/Bar/Cashier chỉ nhận task phù hợp branch, role, station và shift.
+- Handover giữ owner, accepted_at, resolved_at, escalation và reason.
+- Attendance chỉ lưu event được phép; không suy ra lương hoặc compliance payroll.
+
+## F-25 Full Operational Reporting & Integration
+
+### Reports
+
+- Occupancy/utilization, reservation/no-show, queue abandonment, table turnover.
+- Order-to-kitchen/bar delay, serving time, item availability và cancellation.
+- Revenue, discount, payment method, refund, cash/card/transfer reconciliation.
+- Purchase/receipt/stock/count/wastage, theoretical-vs-actual khi recipe mapping đủ.
+- Audit, branch comparison, staff task SLA và source drill-down.
+
+### Rules
+
+- Report response có branch scope, date/business timezone, `as_of`, source links và
+  freshness; cached aggregate không thay thế source query.
+- External POS/accounting import có schema validation, external event ID,
+  quarantine/replay và reconciliation trước khi tác động inventory/financial data.
+- Export áp dụng cùng quyền với màn hình; PII/payment data có field-level policy.

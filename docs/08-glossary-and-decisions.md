@@ -14,10 +14,10 @@
 | Stock request | Yêu cầu branch xin hàng từ warehouse |
 | Daily count | Kiểm kê tồn thực tế theo branch/date/ingredient |
 | Wastage | Phần nguyên liệu mất/loại bỏ có quantity, reason và value |
-| Theoretical sold | Lượng bán theo sales/POS × recipe; có thể chưa có trong MVP |
+| Theoretical sold | Lượng bán theo sales/order × recipe; có thể `NOT_AVAILABLE` khi integration chưa có |
 | Standard price | Giá chuẩn dùng valuation cơ bản |
 | Human approval | Người dùng xem/sửa/duyệt trước khi AI result được lưu |
-| FOH Lite | Lớp FOH giới hạn trong MVP: front-door QR và table QR |
+| FOH Lite | Lớp FOH giới hạn ban đầu: front-door QR và table QR; không phải toàn bộ FOH production |
 | Front-door QR | QR trước cửa để xem availability, estimated wait và queue |
 | Table QR | QR gắn tại bàn để xem menu, gọi thêm hoặc request assistance |
 | Time budget | Khoảng thời gian khách có thể chờ trước khi quyết định join queue |
@@ -28,6 +28,13 @@
 | Operational task | Việc cần staff xử lý, gắn với queue/request/exception và có owner/due time |
 | Compensating event | Ledger event điều chỉnh/reverse liên kết với event gốc mà không sửa lịch sử |
 | Quarantine | Vùng giữ event/import lỗi hoặc chưa map để review/replay, không mutate nghiệp vụ |
+| Reservation | Bản ghi giữ chỗ theo branch, thời gian, party size và trạng thái arrival/cancel/expire/no-show |
+| Service session | Phiên phục vụ gắn với branch/table/guest group, mở từ lúc seat đến close |
+| Station ticket | Ticket thực thi cho một station Kitchen/Bar, có item, modifier, trạng thái và hand-off |
+| Bill | Bản ghi tính tiền của service session, gồm line, tax/service charge, discount và balance |
+| Payment | Giao dịch thu tiền hoặc hoàn tiền liên kết với bill, có idempotency và reconciliation |
+| Cleaning task | Nhiệm vụ đưa table từ dirty về ready, có owner, trạng thái, timestamp và audit |
+| Business day | Ngày vận hành dùng cho closing/reconciliation, có timezone của branch |
 
 ## Decisions
 
@@ -48,6 +55,7 @@
 | D-013 | Notification là side effect độc lập với business status | Kênh gửi có thể lỗi; không được làm mất queue/request | Accepted |
 | D-014 | Ledger immutable; correction dùng compensating event | Giữ audit, reconciliation và lịch sử đáng tin | Accepted for Milestone 2 |
 | D-015 | Import/integration lỗi đi qua quarantine và replay idempotent | Ngăn dữ liệu chưa map hoặc retry làm sai stock | Accepted for Milestone 3 |
+| D-016 | Full restaurant operations production core là target triển khai hiện tại; BOH-first/FOH Lite chỉ là sequencing lịch sử | Người dùng yêu cầu hoàn thiện toàn bộ vận hành nhà hàng trước khi bắt đầu code | Accepted |
 
 ## Open decision template
 

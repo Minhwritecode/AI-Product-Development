@@ -5,34 +5,38 @@
 | Trường | Giá trị |
 |---|---|
 | Product | Luminex |
-| Version | 0.1 MVP baseline |
+| Version | 0.2 Production core baseline |
 | Owner | Product/Engineering team |
 | Status | Draft for validation |
-| Primary scope | BOH Inventory & Wastage Management + FOH Lite QR |
-| Future boundary | Full FOH/POS integration |
+| Primary scope | Full Restaurant Operations: FOH + BOH |
+| Future boundary | Payroll/accounting suite, forecasting/autonomous AI, enterprise HA/DR |
 
 ## 2. Product goals
 
-1. Tạo một nguồn dữ liệu tập trung cho ingredient, supplier, branch và recipe.
-2. Trace được purchase order → goods receipt → warehouse stock → branch request → branch stock → daily count → wastage.
-3. Cho phép owner/manager xem stock, discrepancy và wastage theo branch/ingredient.
-4. Giảm thời gian nhập recipe bằng AI onboarding nhưng giữ human approval.
-5. Chuẩn bị mô hình dữ liệu để nhận sales/POS từ FOH và tính theoretical usage.
-6. Giảm bất định ở cửa vào và giảm độ trễ order thêm tại bàn bằng QR, nhưng vẫn giữ hospitality và staff control.
+1. Quản lý trọn vẹn vận hành nhà hàng từ reservation/walk-in tới seating, order,
+   kitchen/bar, serving, billing/payment, closing và báo cáo.
+2. Tạo một nguồn dữ liệu tập trung cho restaurant, branch, table, menu, staff,
+   supplier, ingredient, recipe, order, bill, payment, stock và wastage.
+3. Trace được purchase → receipt → stock → branch request → count/wastage và
+   liên kết với order/sales/recipe khi tính theoretical usage.
+4. Giảm thời gian chờ và sai sót FOH bằng queue, table readiness, routing station,
+   staff task và table QR nhưng vẫn giữ quyền kiểm soát của nhân viên.
+5. Đảm bảo billing/payment, discount, refund, split bill và end-of-day có audit,
+   idempotency, reconciliation và phân quyền rõ.
+6. AI chỉ rút ngắn nhập liệu và phân tích trong phạm vi dữ liệu được cấp quyền,
+   luôn có human review trước mutation.
 
-## 3. Non-goals / out of scope trong MVP
+## 3. Non-goals / out of scope của production core
 
-- Full reservation engine, table map/seat assignment và customer account.
-- Customer ordering, server assignment, serving workflow.
-- Kitchen Display System, Bar tickets, cooking status.
-- Customer billing, payment, refund, e-receipt.
-- Payroll, attendance, shift scheduling.
-- General ledger, tax filing, full accounting.
-- Supplier self-service portal.
-- Autonomous AI decisions, demand forecasting, auto-PO.
-- Enterprise HA, multi-region DR, fraud detection.
+- Payroll, benefits, HR và chấm công tích hợp payroll.
+- General ledger, tax filing, accounting consolidation và procurement portal.
+- Supplier self-service portal và marketplace.
+- Autonomous AI decisions, unreviewed auto-PO, exact table-turnover prediction
+  và automated guest compensation.
+- Multi-region HA/DR, enterprise SSO/SCIM, advanced fraud platform và data warehouse.
 
-FOH Lite QR là ngoại lệ có chủ đích: chỉ xử lý availability/queue transparency trước cửa và add-on/assistance request tại bàn. Đây không phải full FOH restaurant suite.
+QR là một entry point trong full FOH flow, không phải toàn bộ FOH. Full production
+phải hỗ trợ cả khách dùng QR và khách được nhân viên phục vụ thủ công.
 
 ## 4. Personas và quyền chính
 
@@ -43,6 +47,11 @@ FOH Lite QR là ngoại lệ có chủ đích: chỉ xử lý availability/queue
 | Branch Manager | Branch stock, own requests/counts/wastage | Request, daily count, wastage | Có thể submit; approval TBD |
 | Owner | Toàn cảnh dashboard/report | Không sửa operational record mặc định | Read-only |
 | Admin | Toàn hệ thống | User, role, configuration | Override có audit |
+| Host / FOH Lead | Queue, operating state, FOH request trong branch | Call/seat/cancel/expire queue; acknowledge/route/reject/complete request | Override cần reason/audit |
+| Server | Bàn được phân công, service session, order, ticket và bill theo policy | Mở session, tạo/gửi order, add-on, transfer/merge, serve, request payment | Không sửa bill đã paid hoặc vượt discount permission |
+| Kitchen Staff | Food ticket của station, notes, delay/shortage context | Accept/prepare/complete/hand-over/reject item có reason | Không xem payment/revenue ngoài dữ liệu cần cho ticket |
+| Bar Staff | Beverage ticket của station, notes, delay/shortage context | Accept/prepare/complete/hand-over/reject item có reason | Không xem payment/revenue ngoài dữ liệu cần cho ticket |
+| Cashier | Unpaid bills, table/session, payment/reconciliation scope | Apply authorized discount, split bill, accept/refund payment theo policy | Refund/high-value discount cần approval |
 | Guest | Chỉ session/queue/table token hiện tại | Join/leave queue, add-on draft, assistance request | Không có approval |
 
 AI không phải role. AI thực thi dưới quyền hiện tại của user và không được vượt quyền.
@@ -50,13 +59,20 @@ AI không phải role. AI thực thi dưới quyền hiện tại của user và
 ## 5. Core workflow
 
 ```text
-Master Data
-  → Purchase Order: Draft → Sent → Delivered
-  → Goods Receipt: receive + compare + update warehouse stock
-  → Branch Stock Request: Requested → Approved/Rejected → Shipped → Closed
-  → Daily Count: opening + received + theoretical sold + closing
-  → Wastage: reason + quantity + value
-  → Dashboard + AI assistance
+Restaurant/Branch/Table/Staff setup
+  → Reservation hoặc Walk-in/Front-door Queue
+  → Table readiness → Seating → Service Session
+  → Menu/Modifier → Order Draft → Send to Kitchen/Bar
+  → Prepare → Complete → Serve → Additional Order
+  → Payment request → Bill/Discount/Split → Payment/Refund
+  → Paid → Cleaning → Table Ready → End-of-Day Reconciliation
+
+BOH:
+Master Data → Purchase Order → Goods Receipt → Warehouse Stock
+  → Branch Stock Request → Shipment/Acceptance → Daily Count
+  → Wastage/Variance → Dashboard/Report → Audit/Reconciliation
+
+FOH/POS sales → MenuItem + RecipeVersion → Theoretical Usage (khi mapping hợp lệ)
 ```
 
 ## 6. Functional requirements
@@ -190,7 +206,7 @@ Master Data
 - Không hard-delete operational record; dùng status/void với audit.
 - Snapshot `standard_price` vào wastage record để lịch sử không đổi khi master price cập nhật.
 
-## 9. MVP acceptance gates
+## 9. Historical MVP acceptance gates
 
 MVP chỉ được coi là đủ khi:
 
@@ -216,7 +232,10 @@ MVP chỉ được coi là đủ khi:
 
 ## 11. FOH → BOH Delivery Specification
 
-Phần này hợp nhất yêu cầu delivery cho FOH Lite và BOH Core. Các mã `PRD-US-*` và `PRD-FR-*` trong phần này được dùng để trace tới requirements, user stories, feature specifications và test cases.
+Phần này giữ lại yêu cầu delivery ban đầu cho FOH Lite và BOH Core. Các mã
+`PRD-US-*` và `PRD-FR-*` trong phần này được dùng để trace tới requirements,
+user stories, feature specifications và test cases; production capability hiện
+hành nằm ở section 12 và dùng mã `PRD-PROD-*`.
 
 ### 11.1 Introduction / Overview
 
@@ -225,7 +244,7 @@ Luminex kết nối hai khu vực vận hành của nhà hàng:
 - **FOH — Front of House:** khách xem tình trạng bàn bằng front-door QR, chọn theo time budget, tham gia/rời queue; khi đã ngồi, khách dùng table QR để xem menu, gọi thêm món hoặc request assistance. Staff acknowledgement giữ quyền kiểm soát và duy trì hospitality.
 - **BOH — Back of House:** đội vận hành quản lý master data, purchasing, goods receipt, warehouse/branch stock, daily count, wastage, dashboard và AI assistance có human approval.
 
-Mục tiêu của addendum là chuyển các pain point FOH và BOH thành các đơn vị có thể triển khai, kiểm thử và nghiệm thu. FOH Lite là lớp trải nghiệm khách giới hạn trong MVP; full reservation, table assignment, billing, payment, KDS và bar operations vẫn nằm ngoài scope MVP.
+Mục tiêu của addendum là chuyển các pain point FOH và BOH thành các đơn vị có thể triển khai, kiểm thử và nghiệm thu. FOH Lite là lớp entry-point ban đầu; full reservation, table assignment, billing, payment, KDS và bar operations được đặc tả đầy đủ ở section 12.
 
 ### 11.2 Goals
 
@@ -672,3 +691,182 @@ Phần này làm rõ business context ngay trong PRD để team không triển k
 - [ ] BOH transaction có source record, canonical unit, snapshot giá trị và khả năng reconcile với ledger.
 - [ ] AI và notification chỉ là side effect có quan sát; không được tự thay đổi business status ngoài policy.
 - [ ] Prototype UI chỉ được xem là đạt khi đã đối chiếu với screen ID, PRD scope, loading/empty/stale/error state và accessibility checklist.
+
+## 12. Full Restaurant Operations Production Scope
+
+> Phần này là baseline hiện hành cho mục tiêu full restaurant management
+> production. Các câu ở phần trước mô tả BOH-first/FOH Lite MVP được giữ để
+> trace lịch sử, nhưng khi có mâu thuẫn thì phần 12 và các feature production
+> bên dưới được ưu tiên cho việc lập kế hoạch code.
+
+### 12.1 Production domains
+
+| Domain | Actors | Production capability | Source of truth |
+|---|---|---|---|
+| Restaurant setup & access | Admin, Owner, Manager | Restaurant/branch/area/table, service hours, languages, currency, roles, permissions, branch membership | PostgreSQL config + audit |
+| Reservation & arrival | Guest, Host, Manager | Availability, reservation, confirmation, arrival, no-show, cancel/reschedule, special notes | Reservation + table hold |
+| Walk-in & queue | Guest, Host | Front-door QR, party/time budget, waitlist, call, expire, leave, staff fallback | Queue state + policy |
+| Floor & table operations | Host, Server, Manager, Cleaner | Table status, seating, transfer, merge, cleaning task, readiness, accessibility | Table/service session |
+| Menu & pricing | Admin, Manager | Categories, items, modifier, allergen, station, availability, price, version/effective time | Menu version |
+| Order & service session | Server, Guest, Manager | Draft order, rounds, notes, add-on, send, cancel item, station routing, course/service policy | Service session/order |
+| Kitchen & bar | Kitchen Staff, Bar Staff, Server | Station ticket, accept, preparing, complete, delay, shortage, reject with reason, hand-over | Ticket/item event |
+| Billing & payment | Server, Cashier, Manager, Guest | Bill, tax/service charge, discount, split, payment, refund, receipt, reconciliation | Bill/payment ledger |
+| Staff operations | Admin, Manager, Host, Server, Kitchen, Bar, Cashier | Shift, assignment, task, handover, attendance event, permission scope | Staff/shift/task records |
+| BOH inventory | Purchasing, Warehouse, Branch, Owner | Master, PO, receipt, transfer, count, wastage, variance, correction, dashboard | Inventory ledger |
+| Reporting & controls | Owner, Manager, Auditor | Revenue, occupancy, service time, ticket delay, payment, stock/wastage, audit/export | Read models + source links |
+
+### 12.2 Required production state machines
+
+```text
+Reservation: DRAFT → PENDING → CONFIRMED → ARRIVED → SEATED → COMPLETED
+                         └→ CANCELLED / NO_SHOW
+
+Table: AVAILABLE → HELD/RESERVED → READY → IN_USE → PAYMENT_PENDING
+       → WAITING_CLEANING → CLEANING → READY
+
+ServiceSession: OPEN → ACTIVE → PAYMENT_REQUESTED → CLOSED
+
+Order: DRAFT → SENT → IN_PROGRESS → PARTIALLY_SERVED → SERVED → CLOSED
+       └→ CANCELLED (policy/reason)
+
+TicketItem: NEW → ACCEPTED → PREPARING → READY → PICKED_UP → SERVED
+                 └→ DELAYED / REJECTED (reason)
+
+Bill: OPEN → REVIEW → PARTIALLY_PAID → PAID
+      └→ VOIDED / REFUND_PENDING → REFUNDED (authorized command)
+
+Payment: INITIATED → PENDING → SUCCEEDED
+                     └→ FAILED / CANCELLED / REFUNDED
+
+CleaningTask: OPEN → CLAIMED → CLEANING → READY_FOR_CHECK → COMPLETED
+              └→ BLOCKED (reason)
+```
+
+Transitions are named commands, permission checked, idempotent where they can
+be retried, and audited. Clients cannot set an arbitrary status.
+
+### 12.3 Production functional requirements
+
+#### Setup, access and staff
+
+- **PRD-PROD-FR-001:** Admin MUST configure restaurant, branch, area, table,
+  capacity, accessibility tags, service hours, timezone, currency and locale.
+- **PRD-PROD-FR-002:** Admin MUST manage role, permission, branch membership,
+  staff status and session revocation; backend MUST enforce every scope.
+- **PRD-PROD-FR-003:** Manager MUST create shifts and staff assignments for
+  Host, Server, Kitchen, Bar and Cashier; overlap/conflict must be visible.
+- **PRD-PROD-FR-004:** Every staff action MUST carry actor, branch, shift/session,
+  request ID and timestamp where applicable.
+
+#### Reservation, walk-in and table operations
+
+- **PRD-PROD-FR-005:** Guest or Host MUST create a reservation using date/time,
+  party size, contact policy, seating preference and special note.
+- **PRD-PROD-FR-006:** System MUST validate opening hours, blocked/maintenance
+  tables, capacity, existing holds and reservation policy before confirmation.
+- **PRD-PROD-FR-007:** Host MUST confirm arrival, mark no-show, cancel/reschedule
+  and assign a suitable table without exposing unrelated guest data.
+- **PRD-PROD-FR-008:** Walk-in MUST support queue code, party size, wait start,
+  preference, estimated range, call, leave, expire and staff fallback.
+- **PRD-PROD-FR-009:** Table status MUST prevent seating into dirty, blocked,
+  maintenance or unconfirmed cleaning states.
+- **PRD-PROD-FR-010:** Manager/Host MUST transfer or merge an active service
+  session with complete order/bill history and audit.
+- **PRD-PROD-FR-011:** Closing a paid session MUST create a cleaning task and
+  table becomes available only after staff confirms cleaning complete.
+
+#### Menu, order, kitchen, bar and serving
+
+- **PRD-PROD-FR-012:** Admin/Manager MUST version menu item, price, modifier,
+  allergen, availability, preparation station and effective time.
+- **PRD-PROD-FR-013:** Server MUST open a service session and create draft orders
+  with rounds, quantity, item note, allergen note and service/serve-together policy.
+- **PRD-PROD-FR-014:** Sending an order MUST freeze the submitted snapshot and
+  route food to Kitchen and beverage to Bar using station configuration.
+- **PRD-PROD-FR-015:** Server/Manager MUST be able to cancel or modify only
+  allowed draft/sent items; changes after preparation require reason/permission.
+- **PRD-PROD-FR-016:** Kitchen and Bar MUST see only their station tickets and
+  required table/order context, not payment data outside their scope.
+- **PRD-PROD-FR-017:** Station staff MUST accept, prepare, complete, delay or
+  reject a ticket item with reason; delay/shortage creates an operational signal.
+- **PRD-PROD-FR-018:** Server MUST see ready items, pick up and mark served;
+  system MUST record preparation, pickup and serving timestamps.
+- **PRD-PROD-FR-019:** Additional orders MUST preserve round/session history and
+  route through the same station and inventory contract.
+- **PRD-PROD-FR-020:** Item unavailable MUST be visible before send when known;
+  staff may reject with guest-safe alternative without silently deleting intent.
+
+#### Billing, payment and end-of-day
+
+- **PRD-PROD-FR-021:** Server/Cashier MUST create a bill from served/open order
+  lines with price snapshots, tax, service charge, discount and adjustment audit.
+- **PRD-PROD-FR-022:** Discount/promotion MUST enforce amount/role limits and
+  require Manager approval above configured threshold.
+- **PRD-PROD-FR-023:** Bill MUST support split by item, guest, equal amount or
+  custom amount while total allocated amount equals bill total.
+- **PRD-PROD-FR-024:** Payment MUST support configured cash, card, transfer and
+  e-wallet methods through a provider abstraction with idempotent reference.
+- **PRD-PROD-FR-025:** Payment webhook/retry MUST not double-post; bill can become
+  `PAID` only after a verified successful payment or authorized manual policy.
+- **PRD-PROD-FR-026:** Refund/void MUST require permission, reason, original
+  payment reference and compensating financial/audit event.
+- **PRD-PROD-FR-027:** System MUST issue print/e-receipt according to configured
+  channel and protect payment/guest PII.
+- **PRD-PROD-FR-028:** End-of-day MUST reconcile unpaid, voided, refunded bills
+  and payment method totals before shift/branch close.
+
+#### BOH, inventory and FOH integration
+
+- **PRD-PROD-FR-029:** Recipe version and station/menu mapping MUST link served
+  sales to theoretical ingredient usage when sales data is valid.
+- **PRD-PROD-FR-030:** Every receipt, transfer, count, wastage, correction and
+  served sales event MUST be traceable to branch, actor, source and timestamp.
+- **PRD-PROD-FR-031:** Stock mutation MUST remain transaction-safe, canonical-unit,
+  non-negative in MVP policy and idempotent.
+- **PRD-PROD-FR-032:** Missing/unmapped sales MUST be labeled incomplete and MUST
+  not silently become zero or mutate inventory.
+- **PRD-PROD-FR-033:** Owner/Manager report MUST connect occupancy, service time,
+  ticket delay, revenue, stock usage, variance and wastage by branch/date.
+
+#### Reliability, privacy and production operations
+
+- **PRD-PROD-FR-034:** Every command MUST expose stable error code, recovery path,
+  idempotency behavior and audit event.
+- **PRD-PROD-FR-035:** Public QR/reservation/payment endpoints MUST use rate limit,
+  CSRF/session protection appropriate to auth mode and generic token failures.
+- **PRD-PROD-FR-036:** Payment details, passwords, raw tokens and unnecessary PII
+  MUST not enter logs, analytics, AI prompts or exports.
+- **PRD-PROD-FR-037:** System MUST expose health/readiness, structured logs,
+  request ID, job retry state, backup/restore procedure and operator alerts.
+- **PRD-PROD-FR-038:** Export MUST preserve permission scope, timezone, `as_of`
+  and source references; import/replay MUST be validated and idempotent.
+
+### 12.4 Production acceptance gates
+
+- Guest can complete reservation, walk-in queue, seating, table QR/add-on,
+  payment and receipt while a staff-only fallback remains available.
+- Host cannot seat a dirty/blocked table; cleaning turnaround and readiness are
+  observable and audited.
+- A server can create, send, track and serve multi-round orders routed separately
+  to Kitchen and Bar.
+- Kitchen/Bar cannot see unauthorized payment/revenue data and cannot mutate bill.
+- Cashier can split, partially pay, complete, void/refund according to permission;
+  retry/webhook does not double-post.
+- Every paid session reaches cleaning and end-of-day reconciliation without
+  losing order, payment, inventory or audit history.
+- BOH stock/wastage remains traceable from purchase/receipt/transfer/count and,
+  when mapped, from menu order/recipe sales.
+- Cross-branch isolation, audit completeness, migration/backup/restore, API
+  contract, browser accessibility, load/error/recovery and security tests pass.
+
+### 12.5 Decisions required before production pilot
+
+- Reservation capacity/hold/grace/no-show policy and overbooking policy.
+- Table readiness checklist, cleaning SLA and staff assignment rules.
+- Menu price/version/effective-time policy and modifier/allergen governance.
+- Station routing and course/serve-together behavior.
+- Tax/service charge/discount/promotion/refund authority and local compliance.
+- Payment providers, webhook trust, settlement/reconciliation and receipt channel.
+- Shift/attendance scope and whether attendance is operational only or integrated.
+- Sales-to-recipe mapping, missing sales behavior and inventory valuation policy.
+- Backup retention, recovery target, alert ownership and production deployment target.

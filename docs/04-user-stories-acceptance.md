@@ -1,6 +1,7 @@
 # 3.4 User Stories & Acceptance Criteria
 
-Quy ước: các scenario dùng Given/When/Then. `MVP` là ưu tiên triển khai trong milestone đầu.
+Quy ước: các scenario dùng Given/When/Then. Các story BOH/FOH Lite cũ được giữ
+để trace; nhóm `US-PROD-*` là baseline cho full restaurant production core.
 
 ## Master Data
 
@@ -438,3 +439,218 @@ Là Admin/Owner, tôi muốn nạp dữ liệu theo template và xuất báo cá
 - [ ] Data/units/rounding.
 - [ ] Audit/idempotency nếu mutation.
 - [ ] Link tới FR/BR/feature.
+
+## Full Restaurant Operations — Production Stories
+
+Các story dưới đây mở rộng từ FOH Lite/BOH Core thành production core. Story có
+UI phải được kiểm tra trên browser ở mobile guest và tablet/desktop staff.
+
+### US-PROD-001 — Cấu hình nhà hàng và quyền truy cập
+
+**Description:** Là Admin, tôi muốn cấu hình branch, area, table, service hours,
+role và membership để mọi workflow dùng cùng một nguồn cấu hình.
+
+**Acceptance criteria**
+
+- [ ] Branch, area, table capacity, accessibility tag, timezone và service hours được validate.
+- [ ] User chỉ nhận role/branch membership hợp lệ; thay đổi có audit.
+- [ ] Backend từ chối request dùng branch/role không thuộc actor.
+- [ ] Typecheck/lint và integration authorization test pass.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-002 — Tạo và quản lý reservation
+
+**Description:** Là Guest/Host, tôi muốn tạo và quản lý reservation để nhà hàng
+chuẩn bị bàn và giảm nhầm lịch.
+
+**Acceptance criteria**
+
+- [ ] Hệ thống kiểm tra service hours, capacity, table hold, blocked table và overlap.
+- [ ] Reservation đi đúng `DRAFT → PENDING → CONFIRMED → ARRIVED/NO_SHOW/CANCELLED`.
+- [ ] Host có thể tìm theo code/name/contact trong branch scope và mark arrived.
+- [ ] Cancel/reschedule/no-show ghi actor, reason và timestamp.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-003 — Walk-in và waitlist hợp nhất
+
+**Description:** Là Host, tôi muốn quản lý walk-in cùng queue từ front-door QR để
+không có hai danh sách chờ mâu thuẫn.
+
+**Acceptance criteria**
+
+- [ ] Walk-in và QR queue dùng chung party size, time budget, priority và estimate model.
+- [ ] Host có thể call, seat, leave, cancel, expire theo state machine.
+- [ ] Queue code/notification/fallback không lộ PII ngoài scope.
+- [ ] Retry join không tạo duplicate queue entry.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-004 — Table readiness và seating
+
+**Description:** Là Host/Manager, tôi muốn chỉ assign bàn đã sẵn sàng để khách
+không bị đưa vào bàn bẩn, đang sửa hoặc chưa được kiểm tra.
+
+**Acceptance criteria**
+
+- [ ] Table state phân biệt reserved, ready, in use, waiting cleaning, cleaning, blocked.
+- [ ] Seating tạo service session và lưu party/table/actor snapshot.
+- [ ] Paid session tự tạo cleaning task; chỉ task completed mới cho phép READY.
+- [ ] Transfer/merge giữ order/bill/source history.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-005 — Quản lý menu, modifier và station
+
+**Description:** Là Admin/Manager, tôi muốn quản lý menu version, giá, modifier,
+allergen và station để order được định tuyến đúng.
+
+**Acceptance criteria**
+
+- [ ] Menu item có effective time, availability, price, modifier và station.
+- [ ] Published version không bị sửa làm thay đổi order lịch sử.
+- [ ] Allergen là field riêng; unavailable item không thể gửi order mới.
+- [ ] Recipe version liên kết đúng menu item và ingredient active.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-006 — Server tạo và gửi order theo round
+
+**Description:** Là Server, tôi muốn tạo order draft, ghi chú và gửi theo round
+để Kitchen/Bar nhận đúng yêu cầu của khách.
+
+**Acceptance criteria**
+
+- [ ] Server chọn được session/table được assign, item, quantity, modifier, note và course policy.
+- [ ] Draft có thể sửa; send tạo snapshot và freeze line theo policy.
+- [ ] Food route Kitchen, beverage route Bar; additional order là round mới.
+- [ ] Cancel sau send cần permission/reason và không xóa lịch sử.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-007 — Kitchen xử lý food ticket
+
+**Description:** Là Kitchen Staff, tôi muốn xem và cập nhật food ticket để món
+được chuẩn bị đúng thứ tự và đúng ghi chú.
+
+**Acceptance criteria**
+
+- [ ] Kitchen chỉ thấy food ticket thuộc station/branch được cấp quyền.
+- [ ] Ticket đi `NEW → ACCEPTED → PREPARING → READY → PICKED_UP → SERVED`.
+- [ ] Delay/shortage/reject bắt buộc reason và tạo thông báo cho Server/Manager.
+- [ ] Kitchen không xem/sửa payment hoặc bill data.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-008 — Bar xử lý beverage ticket
+
+**Description:** Là Bar Staff, tôi muốn xử lý beverage ticket độc lập để đồ uống
+không bị lẫn với food flow.
+
+**Acceptance criteria**
+
+- [ ] Bar chỉ thấy beverage ticket và required table/order context.
+- [ ] Ticket có trạng thái preparing/completed/delayed/rejected và timestamp.
+- [ ] Modifier như less ice/temperature được giữ trong ticket snapshot.
+- [ ] Delay/unavailable có recovery path tới Server/guest.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-009 — Server nhận và phục vụ món
+
+**Description:** Là Server, tôi muốn thấy món ready, nhận món và mark served để
+đo được thời gian phục vụ.
+
+**Acceptance criteria**
+
+- [ ] Server thấy ready item theo assignment và priority.
+- [ ] `prepared_at`, `picked_up_at`, `served_at` được ghi đúng actor.
+- [ ] Serve-together/course policy không làm mất item đang ready.
+- [ ] Serve item xuất hiện đúng bill/session và không tạo duplicate line.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-010 — Billing và discount có kiểm soát
+
+**Description:** Là Server/Cashier, tôi muốn tạo bill đúng từ order để khách
+kiểm tra tổng tiền trước khi thanh toán.
+
+**Acceptance criteria**
+
+- [ ] Bill snapshot item price, tax, service charge, discount và source order line.
+- [ ] Discount vượt threshold yêu cầu Manager approval và reason.
+- [ ] Bill chỉ chứa line hợp lệ; total được tính bằng decimal policy.
+- [ ] Bill review có audit và không tự đổi khi menu master thay đổi.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-011 — Split bill
+
+**Description:** Là Cashier, tôi muốn chia bill theo item/guest/equal/custom để
+nhóm khách có thể thanh toán riêng.
+
+**Acceptance criteria**
+
+- [ ] Tổng các bill con bằng bill gốc, không orphan hoặc duplicate line.
+- [ ] Bill còn unpaid nếu một phần chưa thanh toán.
+- [ ] Split/reassign line ghi actor, before/after và reason nếu cần.
+- [ ] Invalid custom amount bị chặn trước khi save.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-012 — Payment, refund và receipt
+
+**Description:** Là Cashier, tôi muốn nhận payment và xử lý refund có kiểm soát
+để doanh thu và trạng thái bill đáng tin.
+
+**Acceptance criteria**
+
+- [ ] Cash/card/transfer/e-wallet dùng payment adapter và external reference.
+- [ ] Retry/webhook cùng reference không double-post.
+- [ ] Timeout giữ payment pending, không báo paid giả.
+- [ ] Refund/void yêu cầu quyền, reason, original payment và compensating audit event.
+- [ ] Receipt chỉ gửi channel được cấu hình/consent.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-013 — End-of-day reconciliation
+
+**Description:** Là Manager/Cashier, tôi muốn close business day sau khi đối soát
+để phát hiện unpaid, refund và cash difference.
+
+**Acceptance criteria**
+
+- [ ] Report phân biệt unpaid, voided, refunded và payment method totals.
+- [ ] Cash/card/transfer/e-wallet discrepancy có owner và resolution note.
+- [ ] Branch/shift đã close không nhận mutation không được phép.
+- [ ] Close command idempotent và audit đầy đủ.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-014 — Staff shift và task assignment
+
+**Description:** Là Manager, tôi muốn phân công shift/station/task để request và
+ticket luôn có owner chịu trách nhiệm.
+
+**Acceptance criteria**
+
+- [ ] Shift có branch, role, start/end, assignment và conflict validation.
+- [ ] Task chỉ route tới staff đúng role/branch/station.
+- [ ] Handover lưu claimed, resolved, escalation và resolution note.
+- [ ] Attendance event không được diễn giải thành payroll.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-015 — Operational reporting
+
+**Description:** Là Owner/Manager, tôi muốn xem occupancy, service time, revenue,
+payment, stock và wastage trong cùng branch scope để ra quyết định.
+
+**Acceptance criteria**
+
+- [ ] Report có date/business timezone, branch filter, `as_of`, freshness và source link.
+- [ ] Có occupancy/no-show/queue, ticket delay, serving time, revenue/payment,
+  stock/variance/wastage views phù hợp role.
+- [ ] Cached aggregate khớp source query và có stale state.
+- [ ] Export giữ permission scope và không lộ payment/PII ngoài policy.
+- [ ] Verify in browser using dev-browser skill.
+
+### US-PROD-016 — Full production recovery
+
+**Description:** Là Operator, tôi muốn hệ thống xử lý lỗi/retry/reconciliation
+để một sự cố không làm mất order, payment, stock hoặc audit history.
+
+**Acceptance criteria**
+
+- [ ] Mỗi command có stable error code, request ID và recovery action.
+- [ ] DB/provider timeout không tạo success giả hoặc duplicate mutation.
+- [ ] Notification/print/receipt/AI failure được retry hoặc staff fallback độc lập.
+- [ ] Backup/restore, migration-from-empty, permission isolation và critical path integration tests pass.
+- [ ] Typecheck/lint/test/build pass.

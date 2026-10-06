@@ -31,7 +31,9 @@ Integration layer
   FOH/POS sales → MenuItem + Recipe version → theoretical usage
 ```
 
-## MVP boundary
+> **Current scope note:** Full Restaurant Operations production core là phạm vi hiện hành và được ưu tiên khi có mâu thuẫn. Phần MVP boundary bên dưới ghi lại sequencing BOH-first/FOH Lite ban đầu để giữ traceability; xem [PRD production scope](02-prd.md) và [Scope & Roadmap](07-scope-and-roadmap.md) để dùng phạm vi hiện tại.
+
+## MVP boundary (historical baseline)
 
 ### Included
 
@@ -42,7 +44,7 @@ Integration layer
 5. Role-based data, audit, human approval for AI and clear service-status feedback.
 6. Minimal operations control plane for branch/table/queue configuration, token lifecycle and notification fallback.
 
-### Not included in this MVP
+### Not included in the historical MVP
 
 - Full online reservation engine.
 - Full table map/seat assignment engine.
@@ -113,3 +115,22 @@ Better FOH transparency
 ### Product guardrail
 
 The MVP should be evaluated as one FOH → BOH loop, but each module must remain useful when the other side is temporarily unavailable. If POS/sales data is missing, Luminex must label theoretical usage as incomplete rather than inventing it.
+
+## Current production target
+
+Production core bao phủ các domain có liên quan trực tiếp đến vận hành nhà hàng:
+
+- **FOH demand and service:** reservation, walk-in/waitlist, front-door QR,
+  floor/table readiness, seating, service session, menu/pricing, order rounds,
+  kitchen/bar station tickets, serving, add-on, assistance và cleaning.
+- **Finance operations:** bill, tax/service charge, discount theo quyền, split
+  bill, payment, refund, receipt và end-of-day reconciliation.
+- **BOH control:** restaurant/branch/master data, purchasing, goods receipt,
+  warehouse/branch stock, transfer/request, daily count, wastage, variance,
+  dashboard và audit.
+- **Cross-cutting:** RBAC/branch scope, shift/task, notification, idempotency,
+  quarantine, observability và AI suggestion có human approval.
+
+Ngoài production core là payroll/HR compliance, GL/accounting consolidation,
+supplier portal, autonomous AI/forecasting, exact table-turnover prediction,
+multi-region HA/DR, enterprise SSO/SCIM và fraud platform.

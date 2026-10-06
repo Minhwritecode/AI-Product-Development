@@ -1,172 +1,229 @@
 # Luminex — Project Agent Instructions
 
-## 1. Phạm vi dự án
+## 1. Phạm vi sản phẩm
 
 Luminex là hệ thống quản trị vận hành nhà hàng nối FOH (Front of House) và BOH
-(Back of House). Mọi thay đổi phải phục vụ vận hành nhà hàng thực tế, đặc biệt
-là nhà hàng ở khu trung tâm đông khách du lịch, có lưu lượng cao và nhiều ca
-phục vụ đồng thời.
+(Back of House), ưu tiên nhà hàng đông khách du lịch ở khu trung tâm/phố đi bộ.
+Mọi thay đổi phải giải quyết pain point vận hành cụ thể, có actor, branch scope,
+state transition và tiêu chí kiểm chứng.
 
-MVP hiện tại gồm:
+Production core hiện tại gồm:
 
-- BOH Core: master data, purchasing, goods receipt, tồn kho theo chi nhánh,
-  daily count, wastage, dashboard và audit.
-- FOH Lite QR: front-door QR để xem tình trạng bàn/ước lượng chờ và table QR
-  để gọi thêm món hoặc yêu cầu hỗ trợ.
-- AI chỉ là lớp hỗ trợ phân tích/gợi ý; mọi thay đổi nghiệp vụ cần con người
-  xem xét và phê duyệt.
+- Nền tảng: restaurant/branch setup, auth/RBAC, branch scope, staff, shift,
+  operational task và audit.
+- FOH: reservation, walk-in/waitlist, front-door QR, floor/table/readiness,
+  seating, service session, menu/pricing, order, kitchen/bar ticket, serving,
+  add-on, cleaning và hospitality status.
+- Finance vận hành: bill, tax/service charge, discount theo quyền, split bill,
+  payment, refund, receipt và end-of-day reconciliation.
+- BOH: master data, purchasing, goods receipt, warehouse/branch stock, stock
+  request/transfer, daily count, wastage, dashboard và reconciliation.
+- Liên kết FOH → BOH: menu/recipe version, station routing, theoretical usage,
+  availability signal, integration quarantine và traceability.
+- AI hỗ trợ suggestion/read-only; human approval bắt buộc trước mọi mutation.
 
-Không tự mở rộng MVP thành hệ thống đặt bàn đầy đủ, thanh toán, billing,
-KDS/BDS hoặc dự báo thời điểm rời bàn nếu PRD chưa thay đổi rõ ràng.
+Ngoài production core là payroll/HR compliance, GL/accounting consolidation,
+supplier portal, autonomous AI/forecasting, dự đoán chính xác thời điểm khách
+rời bàn, multi-region HA/DR, enterprise SSO/SCIM và fraud platform. Không coi
+những ranh giới này là lý do để bỏ qua các capability vận hành nhà hàng đã nêu.
 
-## 2. Nguồn sự thật và phạm vi tài liệu
+## 2. Nguồn sự thật
 
-Trước khi phân tích hoặc sửa code, đọc các tài liệu liên quan trong `docs/`.
-Ưu tiên theo thứ tự:
+Trước khi phân tích hoặc sửa code, đọc tài liệu liên quan trong `docs/` theo thứ tự:
 
-1. `docs/02-prd.md` — phạm vi, requirement ID và acceptance criteria.
-2. `docs/03-requirements-analysis.md` — quy tắc, ràng buộc và edge case.
-3. `docs/04-user-stories-acceptance.md` — hành vi người dùng và tiêu chí nghiệm thu.
-4. `docs/05-feature-specifications.md` — đặc tả theo feature.
-5. `docs/09-unified-product-vision.md` và tài liệu FOH/BOH liên quan.
+1. `docs/02-prd.md` — production scope, requirement ID và release acceptance gates.
+2. `docs/03-requirements-analysis.md` — actor, dependency, business rule và failure path.
+3. `docs/04-user-stories-acceptance.md` — user behavior và acceptance criteria.
+4. `docs/05-feature-specifications.md` — API, state machine, data và UI state.
+5. `docs/06-foh-boh-pain-points.md` — pain point và role/capability boundary.
+6. `docs/07-scope-and-roadmap.md` — dependency order và production implementation plan.
+7. `docs/architecture/` — system, data model và API contract.
 
-`docs/` chỉ chứa nội dung sản phẩm Luminex: discovery, PRD, requirements,
-user stories, feature specs, architecture, research và design reference. Không
-đưa hướng dẫn thao tác Codex, Git, Stitch, skill hoặc lịch sử làm việc vào đó.
+Các file `docs/source/` là nguồn đầu vào đã lưu, không tự nâng nội dung source
+thành requirement nếu chưa được chuẩn hóa ở PRD/spec. `docs/uiux/stitch/` là
+HTML/ảnh/design reference, không phải runtime frontend và không định nghĩa rule.
+`docs/` chỉ chứa nội dung Luminex; không thêm lịch sử thao tác Codex, Git,
+Stitch, skill hoặc prompt vào tài liệu sản phẩm.
 
-`docs/uiux/stitch/` là thiết kế tham chiếu dựng sẵn, gồm HTML và ảnh; không
-được coi là runtime frontend và không thay thế requirement trong PRD.
+## 3. Kiến trúc bắt buộc
 
-### Cơ chế áp dụng hướng dẫn
+### Runtime boundaries
 
-- `AGENTS.md` ở root áp dụng cho toàn repo. Nếu một khu vực cần ngoại lệ,
-  dùng `AGENTS.override.md` hoặc một `AGENTS.md` gần thư mục đó; không chép
-  lại toàn bộ file root.
-- Giữ file hướng dẫn ngắn, rõ và dưới giới hạn mặc định 32 KiB của Codex.
-  Quy tắc quan trọng phải được viết thành hành vi cần làm, điều kiện ngoại lệ
-  và cách kiểm tra.
-- Khi sửa hướng dẫn, chạy Codex ở phiên mới để nạp lại instruction chain;
-  không giả định session đang mở đã thấy thay đổi.
+```text
+Guest/Staff Browser (React/Vite)
+        │ REST/JSON + session/JWT
+        ▼
+Backend API (Fastify/TypeScript)
+  ├── PostgreSQL: source of truth, commands, projections, audit/ledger
+  ├── Redis: cache/rate-limit/session support only, never business source
+  ├── AI adapter: authorized projection → structured suggestion/read-only answer
+  └── Integration/quarantine: future POS/import events, no unvalidated mutation
+```
 
-## 3. Quy tắc nghiệp vụ FOH
+- `frontend/`: route, feature UI, API client và presentation state; không quyết
+  định authorization, branch scope, canonical quantity hoặc business transition.
+- `backend/`: auth/access, restaurant/branch setup, staff/shifts/tasks,
+  reservations, walk-in/queue, floor/tables/seating/cleaning, menu/pricing,
+  sessions/orders, kitchen/bar tickets, serving, billing/payments/refunds,
+  end-of-day, master-data, purchasing, receiving, inventory, stock-requests,
+  daily-count, wastage, dashboard, notifications, audit, corrections, AI và
+  integrations.
+- Mỗi backend module tách route/schema, service/domain, repository/query và test.
+  Route chỉ parse/authorize/gọi service/map response; không chứa business rule.
+- `ai-service/`: adapter/provider boundary; không nhận DB credential và không
+  được gọi mutation endpoint.
+- `db/`: migration, seed và test fixture; migration phải chạy được từ DB rỗng.
+- `nginx/`: reverse proxy tùy chọn; không đưa logic nghiệp vụ vào proxy.
 
-- Front-door QR phải cho khách xem trạng thái vận hành, estimated wait dạng
-  range kèm `as_of` và confidence; không hứa thời điểm chính xác khách khác
-  sẽ rời bàn.
-- Khách phải xem được availability mà không cần tải app, đăng nhập hoặc cung
-  cấp contact nếu không cần notification.
-- Flow phải hỗ trợ language, party size, time budget và trạng thái mở/đóng,
-  đầy chỗ hoặc tạm ngưng nhận queue rõ ràng.
-- Join/leave queue là hành động có chủ đích, không dark pattern; retry không
-  được tạo queue entry trùng. Không có contact thì phải có cách gọi khách thay
-  thế được cấu hình bởi nhà hàng.
-- Table QR phải xác nhận đúng branch/table trước khi gửi yêu cầu. QR token có
-  chữ ký, không chứa PII và có thể rotate/revoke.
-- Add-on request và assistance request phải có trạng thái từ gửi đến hoàn tất,
-  hiển thị acknowledgement của staff. QR request chưa được staff acknowledge
-  không được xem là order chính thức.
-- Mọi flow QR phải có fallback cho nhân viên, loading/empty/stale/error/retry,
-  accessibility và trạng thái khi dịch vụ tạm thời không khả dụng.
-- Không xử lý payment, refund hoặc billing trong QR MVP.
+### Data ownership
 
-## 4. Quy tắc nghiệp vụ BOH
+- PostgreSQL là source of truth cho User, Role, Restaurant, Branch, Area, Table,
+  Staff, Shift, Reservation, QueueEntry, master data, Menu, Recipe, PO, receipt,
+  request, stock, ledger, count, wastage, ServiceSession, Order, Ticket, Bill,
+  Payment, Refund, Receipt, task, notification và audit.
+- Current stock là projection phải reconcile được với append-only inventory ledger.
+- Posted ledger/operational record không hard-delete và không sửa trực tiếp;
+  correction dùng compensating event liên kết record gốc.
+- Redis chỉ cache aggregate, rate-limit hoặc session support khi fallback an toàn.
+- AI chỉ đọc authorized projection; output là draft/suggestion cho tới khi user
+  review/approve.
+- POS/import event chưa map, sai schema hoặc retry bất thường phải vào quarantine,
+  không tự trừ stock hoặc thay đổi theoretical usage.
 
-- Master data là nguồn chuẩn cho item, unit, recipe, supplier, branch và
-  conversion. Không suy diễn đơn vị hoặc âm thầm đổi đơn vị.
-- Goods receipt ở trạng thái draft không làm thay đổi tồn kho. Chỉ thao tác
-  confirm hợp lệ mới tạo stock transaction, inventory ledger và audit event
-  trong cùng một transaction.
-- Receipt, shipment, stock request và các mutation có side effect phải có
-  idempotency key; retry không được nhân đôi tồn kho hoặc giao dịch.
-- Inventory ledger là append-only. Điều chỉnh phải tạo correction/reconciliation
-  event có lý do, người thực hiện, timestamp và liên kết bản ghi gốc; không
-  hard-delete operational records.
-- Phân biệt tồn kho theo warehouse/branch, hàng đang in-transit và hàng đã
-  nhận. Không tự động coi dữ liệu thiếu là zero.
-- Daily count phải lưu counted quantity, unit, thời điểm, người đếm và variance
-  so với số hệ thống; nếu `sold_qty_theory` chưa có thì phải hiển thị là chưa
-  xác định, không dựng số giả.
-- Wastage cần quantity, unit, reason, value snapshot, branch, người ghi và
-  timestamp. Không cho ghi wastage thiếu reason hoặc tự sửa lịch sử mà không
-  có correction.
-- Dashboard phải drill-down được từ variance/wastage về receipt, stock
-  transaction, count hoặc correction tương ứng.
+### Required write path
 
-## 5. AI, dữ liệu và quyền hạn
+```text
+HTTP command
+ → schema validation
+ → authenticated actor + branch-scope check
+ → state/idempotency check
+ → PostgreSQL transaction
+    command record + projection mutation + ledger (nếu stock) + audit event
+ → response có request_id/source status
+ → notification/task side effect bất đồng bộ
+```
 
-- AI chỉ nhận projection dữ liệu đã được authorize; không truy cập database
-  trực tiếp và không được tự ghi recipe, PO, stock, wastage, queue hay request.
-- Mọi AI suggestion phải có nguồn dữ liệu, confidence/uncertainty phù hợp,
-  trạng thái pending approval và audit người duyệt/chỉnh sửa/từ chối.
-- Backend là nơi quyết định authentication, authorization và branch scope;
-  không tin role hoặc branch ID do frontend gửi lên.
-- Không đưa PII, secret, QR token thô hoặc dữ liệu nhạy cảm vào log, prompt,
-  URL, screenshot hoặc dữ liệu test nếu không cần.
-- Timestamp lưu UTC; UI hiển thị theo timezone được cấu hình của branch.
+Mutation thất bại trước commit phải fail rõ và rollback toàn bộ. Notification
+hoặc AI failure sau commit là side effect cần retry/observability, không rollback
+business record.
 
-## 6. Quy tắc UI/UX
+### API contract
 
-- Mobile-first cho khách; body text tối thiểu 16px và touch target tối thiểu
-  44×44px.
-- Mỗi trạng thái có một primary CTA rõ ràng, label nhìn thấy được, helper
-  text và inline validation; không dùng màu làm tín hiệu duy nhất.
-- Phải thiết kế loading, empty, stale, error, retry, success và permission
-  state cho flow quan trọng.
-- Status động của queue/request dùng `aria-live` phù hợp; hỗ trợ keyboard,
-  focus visible, reduced motion và tương phản đủ.
-- Ưu tiên Vietnamese/English, progressive disclosure và copy dễ hiểu cho
-  khách du lịch; không dùng thuật ngữ vận hành nội bộ trên guest UI.
-- Mọi control nhìn thấy phải có outcome thật hoặc disabled state có lý do.
-  Không thêm card, metric, gradient hoặc animation chỉ để trang trông đầy hơn.
-- Khi triển khai từ Stitch, lấy cấu trúc và trạng thái hữu ích làm tham chiếu;
-  không copy mù quáng layout nếu mâu thuẫn với pain point, accessibility hoặc
-  requirement hiện hành.
+- Base path `/api/v1`; response dùng `{ data, meta: { requestId }, error }`.
+- State change dùng named command (`/send`, `/confirm`, `/approve`, `/ship`,
+  `/acknowledge`), không cho client PATCH status tùy ý.
+- Dùng `401` unauthenticated, `403` out of permission, `404` not found/in-scope,
+  `409` state/idempotency conflict, `422` validation.
+- Quantity luôn đi cùng unit và normalize về canonical stock unit; tiền dùng
+  decimal/VND policy, không dùng binary float; API timestamp là UTC.
+- `Idempotency-Key` bắt buộc cho reservation/waitlist commands, queue join,
+  FOH request, order send, goods receipt, shipment, payment/webhook, refund,
+  correction và import command có side effect.
 
-## 7. Quy tắc kỹ thuật
+## 4. Quy tắc nghiệp vụ FOH
 
-- Giữ boundary rõ giữa frontend, backend, AI service và database.
-- Các write path cần kiểm tra validation, authorization, transaction boundary,
-  idempotency, rollback, audit và error/recovery path.
-- API/state transition phải dùng enum/trạng thái rõ ràng; không dùng string
-  rời rạc làm mất khả năng trace.
-- Không đặt business rule quan trọng trong component UI hoặc chỉ ở frontend.
-- Ưu tiên thay đổi nhỏ, dễ review; không refactor lan rộng khi task không yêu cầu.
-- Khi thêm migration hoặc schema, nêu rõ dữ liệu cũ, rollback, lock và tác động
-  đến branch scope.
+- Front-door QR hiển thị `OPEN/PAUSED/FULL/CLOSED`, availability, estimated wait
+  dạng range, `as_of`, confidence/limitation và recovery action. Không hứa giờ
+  khách cụ thể rời bàn.
+- Guest chọn Vietnamese/English, party size và time budget; không cần app/login/
+  contact trước khi xem hoặc join. Contact chỉ yêu cầu khi opt-in notification.
+- Join/leave queue là hành động rõ ràng, không dark pattern; retry cùng key không
+  tạo entry thứ hai; không có contact vẫn phải có queue code/staff fallback.
+- Host chỉ call/seat/cancel/expire theo state machine, branch scope và policy;
+  manual override bắt buộc reason, actor, timestamp và audit.
+- Reservation, walk-in, queue, table readiness và seating phải liên kết được với
+  đúng branch/table/session; không seat hai active session vào cùng một table.
+- Server chỉ gửi order sau khi xác nhận session/table, modifier và station route;
+  void/discount/transfer/merge phải theo quyền và tạo audit.
+- Kitchen/Bar nhận ticket theo station, không tự đổi order hoặc bill; mọi delay,
+  reject, shortage và hand-off phải có actor, reason và timestamp.
+- Cashier chỉ ghi nhận payment/refund qua billing domain; webhook/retry không được
+  tạo payment hoặc refund trùng, bill đã paid không bị sửa trực tiếp.
+- Table QR dùng signed token không PII, có expiry/rotation/revocation; token lỗi
+  trả response generic, không lộ table/session khác. Guest xác nhận đúng bàn trước submit.
+- `FOHRequest` bắt đầu `SUBMITTED`, sau đó staff acknowledge/route/reject/complete.
+  Add-on/ordering request chỉ trở thành order round sau khi staff acknowledge và
+  backend xác nhận session/table/menu; request thô không close bill, không payment
+  và không mutate stock.
+- Mọi QR state có staff fallback, loading/empty/stale/error/retry, privacy-safe
+  status và accessibility. QR bổ trợ hospitality, không thay thế nhân viên.
 
-## 8. Cách làm việc và giao việc
+## 5. Quy tắc nghiệp vụ BOH
 
-- Đọc diff và trạng thái worktree trước khi sửa. Giữ nguyên thay đổi có sẵn của
-  người dùng; chỉ stage file thuộc task hiện tại.
-- Gắn thay đổi với requirement/user-story ID khi có thể. Nếu phát hiện mâu
-  thuẫn giữa docs, ghi rõ giả định và câu hỏi mở thay vì tự bịa policy.
-- Agent viết code chỉ sở hữu một vùng file/feature tại một thời điểm. Có thể
-  chạy nhiều agent read-only song song; tránh hai agent cùng sửa một file.
-- Subagent phải trả về: phạm vi đã đọc, file đã đổi, hành vi, kiểm thử đã chạy,
-  rủi ro còn lại và việc cần người duyệt.
-- Không commit, merge, push hoặc tạo PR nếu người dùng chưa yêu cầu rõ trong
-  task hiện tại. Không dùng `git reset --hard`, `git checkout --` hoặc lệnh
-  xóa diện rộng.
-- Branch nên phản ánh một nhóm thay đổi có thể review độc lập: `docs/`, `fe/`,
-  `be/`, `test/`, `infra/`; chỉ merge vào `main` sau khi đã review và kiểm tra.
+- Master data là nguồn chuẩn cho ingredient, unit, conversion, supplier, branch,
+  menu và recipe. Conversion phải > 0; record đã tham chiếu không hard-delete.
+- Draft PO/receipt không mutate stock. Goods receipt confirm phải atomic giữa
+  receipt, warehouse stock, ledger và audit; retry không double-add.
+- Stock request phải `Requested → Approved/Rejected → Shipped → Closed`; shipment
+  không vượt available stock, không tạo stock âm ở MVP, approval không đồng nghĩa received.
+- Hàng `IN_TRANSIT`, `RECEIVED`, `DAMAGED`, `REJECTED`, `BACKORDERED` phải tách rõ
+  khi feature đã hỗ trợ; không coi dữ liệu thiếu là zero.
+- Daily count lưu opening, received, theoretical sold nếu có, closing actual và
+  variance. Thiếu theoretical sold phải là `NOT_AVAILABLE/INCOMPLETE_THEORY`.
+- Wastage bắt buộc quantity > 0, reason, standard price snapshot, value, branch,
+  actor và timestamp; không dùng số âm để thay cho variance.
+- Correction/adjustment/reversal tạo compensating ledger event và reconciliation;
+  không sửa/xóa event gốc.
+- Dashboard có branch scope, timezone, `as_of`, freshness và drill-down source record.
+- FOH order/sales chỉ tạo theoretical usage khi mapping menu → recipe/version hợp lệ;
+  thiếu mapping phải hiển thị exception, không tự trừ tồn.
+
+## 6. Vai trò và quyền
+
+- Admin: config branch/warehouse/table/queue, user/role/membership, token và audit.
+- Owner/Operations: cross-branch dashboard, drill-down, exception/correction approval
+  theo policy; không sửa trực tiếp ledger.
+- Purchasing Manager: supplier và PO; không tự xác nhận receipt/stock.
+- Warehouse Admin: master data, goods receipt, warehouse stock, approve/reject/ship.
+- Branch Manager: branch stock, stock request, daily count, wastage và variance.
+- Host/FOH Lead: queue và FOH request acknowledgement/routing trong branch scope.
+- Server: mở session, tạo/gửi order, theo dõi ticket, serve, add-on, request
+  payment và transfer/merge theo branch policy; không sửa paid bill ngoài quyền.
+- Guest: chỉ session/queue/table token hiện tại; không thấy PII hay session bàn khác.
+- Kitchen/Bar: xử lý station ticket theo food/beverage station; Cashier: bill,
+  discount, split, payment, refund, receipt và end-of-day theo quyền.
+- AI không phải role; AI thừa hưởng quyền user nhưng không vượt quyền và không mutate.
+
+## 7. UI/UX và accessibility
+
+- Guest mobile-first; staff console tablet/desktop-first; body text ≥16px,
+  touch target ≥44×44px, test ở 320px.
+- Một primary CTA mỗi trạng thái; visible labels, helper text, inline validation,
+  keyboard/focus visible, readable contrast, reduced motion và `aria-live` phù hợp.
+- Có loading, empty, stale, error, timeout, retry, success và permission state.
+- Status luôn có text/icon, không dùng màu làm tín hiệu duy nhất. Không thêm card,
+  metric, gradient hoặc animation không phục vụ task.
+- Vietnamese/English là baseline guest; progressive disclosure cho option nâng cao.
+- UI chỉ phản ánh rule từ PRD/spec; không tự tạo policy mới từ prototype Stitch.
+
+## 8. Cách làm việc
+
+- Đọc `git status` và diff trước khi sửa; giữ thay đổi sẵn có của người dùng,
+  chỉ stage file thuộc task hiện tại.
+- Gắn thay đổi với requirement/user-story/feature ID. Khi docs mâu thuẫn, ghi
+  assumption/open decision; không tự bịa policy.
+- Dùng [Scope & Roadmap](docs/07-scope-and-roadmap.md) để chọn slice tiếp theo.
+  Không xây feature phụ thuộc trước command, state, permission, fixture và API contract.
+- Một write agent sở hữu một vùng file/feature. Read-only exploration/review có
+  thể song song; write-heavy agents không sửa cùng file.
+- Subagent phải trả về scope đã đọc, file đã đổi, behavior, test, residual risk
+  và cần người duyệt.
+- Không commit/merge/push/PR nếu chưa được yêu cầu rõ trong task. Không dùng
+  `git reset --hard`, `git checkout --` hoặc xóa diện rộng.
 
 ## 9. Code review rules
 
-Review phải ưu tiên rủi ro hành vi và nghiệp vụ, không biến thành nhận xét
-formatting thuần túy:
-
-- Block nếu write path có thể tạo duplicate, bỏ qua branch authorization,
-  thiếu transaction/rollback, thiếu audit hoặc làm ledger sai.
-- Block nếu guest có thể gửi request nhầm bàn, bị kẹt không có fallback, hoặc
-  UI trình bày estimated wait như một cam kết chính xác.
-- Block nếu AI suggestion có thể ghi dữ liệu vận hành mà không có approval,
-  hoặc prompt/tool dùng dữ liệu ngoài authorized projection.
-- Block nếu acceptance criteria quan trọng không có test hoặc không thể kiểm
-  chứng bằng một flow thực tế.
-- Với UI, kiểm tra loading/empty/error/success/permission, keyboard/focus,
-  mobile layout và outcome của từng control; phân biệt lỗi cụ thể với sở thích.
-- Mỗi finding phải có file/line hoặc đường đi hành vi, mức độ, tác động và
-  safe path/fix tối thiểu. Không báo “full compliance” chỉ từ static review.
+- Block nếu write path thiếu validation, authorization, branch scope, transaction,
+  idempotency, rollback, audit hoặc tạo duplicate/negative stock.
+- Block nếu guest gửi nhầm bàn, queue không leave được, QR thiếu fallback hoặc
+  wait range bị trình bày thành cam kết exact.
+- Block nếu table/session bị double-seat, order/ticket bị gửi sai station, bill
+  đã paid bị sửa, payment/refund bị duplicate hoặc end-of-day không reconcile được.
+- Block nếu AI có thể ghi/approve recipe, PO, stock, wastage, queue hoặc payment.
+- Block nếu acceptance criteria chính không có test hoặc không thể replay bằng fixture.
+- Với UI, kiểm tra state matrix, responsive, keyboard/focus, accessibility và
+  outcome của từng control; chỉ báo finding có file/line hoặc flow evidence.
+- Không tuyên bố full compliance từ static review; nêu rõ phần cần browser/runtime check.
 
 ## 10. Kiểm tra trước khi bàn giao
 
@@ -179,38 +236,23 @@ npm test
 git diff --check
 ```
 
-Với thay đổi build/runtime, chạy thêm:
+Thay đổi build/runtime chạy thêm `npm run build`. Với DB chạy migration từ
+database rỗng, seed fixture và integration transaction tests. Với UI story,
+kiểm tra browser ở guest mobile và staff tablet/desktop, bao gồm error/stale/
+fallback state.
 
-```bash
-npm run build
-```
+## 11. Codex configuration
 
-Review thủ công phải kiểm tra: FOH fallback và trạng thái lỗi; BOH transaction,
-idempotency, ledger và audit; branch authorization; accessibility; không đưa
-roadmap vào MVP; và traceability từ PRD đến implementation/test.
-
-## 11. Codex runtime, subagent và rules
-
-- Toàn bộ agent TOML upstream được lưu project-scoped trong `.codex/agents/`.
-  Chỉ chọn agent có phạm vi hẹp phù hợp task; không spawn hàng loạt nếu công
-  việc không độc lập vì mỗi agent tiêu tốn thêm token và thời gian.
-- Dùng subagent song song cho exploration, test, triage và review read-only.
-  Với write-heavy work, chia ownership theo vùng file/feature, chờ kết quả,
-  rồi main agent tổng hợp trước khi merge.
-- Mỗi custom agent phải có `name`, `description` và
-  `developer_instructions`; `name` trong TOML là source of truth. Model,
-  reasoning effort và sandbox chỉ là default của agent, có thể bị explicit
-  spawn hoặc runtime của parent override.
-- Fast mode là thiết lập runtime cá nhân của Codex (`/fast on|off|status`),
-  có thể tăng tốc nhưng dùng hạn mức/chi phí cao hơn; không tự bật hoặc ghi
-  đè config cá nhân từ task của repo.
-- Quy tắc phê duyệt lệnh của Codex là lớp cấu hình riêng trong các file
-  `.rules`; không nhúng approval policy vào tài liệu sản phẩm hoặc dùng
-  `AGENTS.md` để tự cấp quyền cho lệnh nguy hiểm. Project-local rules chỉ
-  hoạt động khi lớp `.codex/` của project được trust.
-- Nếu tạo `.rules`, dùng `prefix_rule` với `pattern`, `decision`,
-  `justification`, `match` và `not_match` phù hợp; kiểm tra bằng
-  `codex execpolicy check` và ưu tiên `prompt`/`forbidden` cho thao tác nguy cơ
-  cao. Hiện repo không tự thêm approval rules để tránh đổi quyền ngoài ý muốn.
-- `AGENTS.md` này là hướng dẫn cộng tác và nghiệp vụ của repo; không thay thế
-  PRD, acceptance criteria hoặc quyền hạn được enforce ở backend.
+- `AGENTS.md` root áp dụng toàn repo. Nested `AGENTS.override.md`/`AGENTS.md`
+  chỉ thêm scope-specific rule; giữ instruction chain ngắn và dưới giới hạn mặc định.
+- Custom project subagents nằm trong `.codex/agents/`; mỗi TOML cần `name`,
+  `description`, `developer_instructions`. Model/reasoning/sandbox là default,
+  có thể bị explicit spawn hoặc parent runtime override.
+- Toàn bộ agent collection upstream có trong `.codex/agents/`; chỉ spawn agent
+  phù hợp và chia việc độc lập vì mỗi subagent tăng token/time cost.
+- Fast mode (`/fast on|off|status`) là runtime setting của người dùng; không tự
+  bật hoặc thay đổi config cá nhân từ task repo.
+- Command approval là lớp riêng trong `.rules`, không đưa approval policy vào
+  `AGENTS.md`. Project-local rules chỉ load khi `.codex/` được trust; nếu tạo
+  rules phải dùng `prefix_rule`, test bằng `codex execpolicy check` và ưu tiên
+  `prompt`/`forbidden` cho thao tác nguy cơ cao.

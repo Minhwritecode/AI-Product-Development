@@ -15,7 +15,12 @@ Tài liệu này hợp nhất các nguồn nghiệp vụ thành baseline cho Lum
 
 Các nguồn gốc được lưu trong [docs/source/](source/README.md) để giữ lại context nghiệp vụ.
 
-## 3. Product baseline
+## 3. Product baseline lịch sử và phạm vi hiện hành
+
+Các nguồn ban đầu mô tả chiến lược BOH-first/FOH Lite để giảm rủi ro discovery.
+Đó là baseline lịch sử của tài liệu nguồn, không phải giới hạn cuối cùng của
+implementation hiện tại. PRD section 12 và Scope & Roadmap là nguồn chuẩn cho
+production core full restaurant management trước khi bắt đầu code.
 
 Luminex có tầm nhìn end-to-end FOH → BOH, với MVP gồm:
 
@@ -23,7 +28,11 @@ Luminex có tầm nhìn end-to-end FOH → BOH, với MVP gồm:
 - **FOH Lite:** front-door QR để xem availability/estimated wait và join/leave queue; table QR để add-on/assistance request có staff acknowledgement.
 - **Integration boundary:** recipe version, menu item, branch và POS sales mapping được chuẩn bị cho milestone sau; dữ liệu chưa mapping không được tự mutate stock.
 
-Full reservation, table assignment, ordering/POS, KDS/BDS, billing/payment, payroll và accounting không thuộc MVP.
+Full reservation, table assignment, ordering/POS, KDS/BDS, billing/payment,
+payroll và accounting không thuộc baseline MVP lịch sử. Production core hiện
+tại đã đưa reservation, table assignment, ordering, station execution,
+billing/payment/refund và end-of-day vào phạm vi; payroll/HR và GL/accounting
+consolidation vẫn nằm ngoài production core.
 
 ## 4. Pain point được chuẩn hóa
 
@@ -48,7 +57,8 @@ Full reservation, table assignment, ordering/POS, KDS/BDS, billing/payment, payr
 
 | Quyết định | Baseline |
 |---|---|
-| Product direction | BOH-first, FOH Lite QR trong MVP |
+| Product direction lịch sử | BOH-first, FOH Lite QR trong MVP |
+| Product direction hiện hành | Full restaurant operations production core, FOH ↔ BOH |
 | Stock source of truth | Append-only inventory ledger và transaction-safe projection |
 | Wastage valuation | Standard price snapshot tại thời điểm ghi nhận trong MVP |
 | Missing sales theory | `NOT_AVAILABLE`/`INCOMPLETE_THEORY`, không mặc định bằng zero |
@@ -66,7 +76,7 @@ Full reservation, table assignment, ordering/POS, KDS/BDS, billing/payment, payr
 - Partial receipt, in-transit shipment, branch acceptance và discrepancy.
 - Import/export, POS quarantine, replay và mapping reconciliation.
 
-Các năng lực này chỉ được đưa vào milestone tương ứng trong [Scope & Roadmap](07-scope-and-roadmap.md), không tự mở rộng thành full FOH suite.
+Các năng lực production được đưa vào milestone tương ứng trong [Scope & Roadmap](07-scope-and-roadmap.md). Các ranh giới payroll/HR, GL/accounting, supplier portal và enterprise platform không tự nhập vào production core.
 
 ## 7. Open discovery decisions
 

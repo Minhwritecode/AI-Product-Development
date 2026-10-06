@@ -2,7 +2,7 @@
 
 ## 1. Phương pháp
 
-Yêu cầu được phân rã theo capability, actor, business rule, data dependency và mức ưu tiên. `MUST` là điều kiện để core workflow chạy; `SHOULD` làm tăng chất lượng vận hành; `COULD` để milestone sau; `WON'T` không thuộc MVP.
+Yêu cầu được phân rã theo capability, actor, business rule, data dependency và mức ưu tiên. `MUST` là điều kiện để production workflow chạy; `SHOULD` làm tăng chất lượng vận hành; `COULD` để milestone sau; `WON'T` là ranh giới ngoài production core.
 
 ## 2. Requirement catalogue
 
@@ -189,19 +189,30 @@ Inventory correction ──> Compensating ledger ──> Reconciliation/Audit
 
 ### Must
 
-Master data, PO, goods receipt, warehouse/branch stock, request workflow, daily count, wastage, dashboard basics, auth/RBAC, audit, validation, transaction integrity.
+Auth/RBAC/branch scope, restaurant/branch/table setup, master data, reservation,
+walk-in/queue, seating/service session, menu/pricing, order/routing, Kitchen/Bar
+tickets, serving, billing/payment/refund, end-of-day reconciliation, PO, goods
+receipt, warehouse/branch stock, request workflow, daily count, wastage,
+dashboard basics, audit, validation, transaction integrity.
 
 ### Should
 
-AI onboarding, AI Copilot read-only, dashboard cache, CSV export, task inbox, notification retry, stock correction/reconciliation, partial receipt, count/wastage approval.
+AI onboarding, AI Copilot read-only, dashboard cache, CSV export, task inbox,
+notification retry, stock correction/reconciliation, partial receipt, count/wastage
+approval, advanced reservation rules, provider payment adapters, scheduled reports,
+shift/attendance enhancements and POS mapping.
 
 ### Could
 
-POS sync, expiry/batch/lot, supplier performance, scheduled reports, advanced alerts, POS quarantine/replay.
+Supplier performance, expiry/batch/lot, advanced alerts, POS quarantine/replay,
+forecasting, loyalty/CRM, accounting export, multi-warehouse optimization and
+enterprise deployment features.
 
-### Won’t for MVP
+### Won’t for production core
 
-FOH transaction screens, customer payment, KDS/bar, payroll, accounting, supplier portal, autonomous AI, forecasting, enterprise HA.
+Payroll/HR suite, general-ledger/accounting suite, supplier self-service portal,
+autonomous AI, exact table-turnover prediction, multi-region HA/DR and fraud
+platform. These remain separate products or enterprise extensions.
 
 ## 7. Traceability matrix
 
@@ -216,6 +227,10 @@ FOH transaction screens, customer payment, KDS/bar, payroll, accounting, supplie
 | Guest-facing hospitality | 6.9, 6.10 | US-FOH-01..08 | F-10, F-11 |
 | Reliable FOH operation | 6.11, 6.12 | US-OP-01..03, US-NF-01..02 | F-12, F-13 |
 | Controlled correction and scale | 6.13, 6.14 | US-CTL-01..03, US-INT-03 | F-14, F-15 |
+| Full reservation/table operation | 12.3 PRD-PROD-FR-005..011 | US-PROD-RES/FL/CL | F-16, F-17 |
+| Menu/order/station/serving | 12.3 PRD-PROD-FR-012..020 | US-PROD-MN/OR/KD/SV | F-18..F-21 |
+| Billing/payment/reconciliation | 12.3 PRD-PROD-FR-021..028 | US-PROD-BL/PM/ED | F-22, F-23 |
+| Production reliability/security | 12.3 PRD-PROD-FR-029..038 | US-PROD-INT/OPS | F-24, F-25 |
 
 ## 8. Risks and mitigations
 
@@ -225,7 +240,7 @@ FOH transaction screens, customer payment, KDS/bar, payroll, accounting, supplie
 | Missing sales data | High | nullable/flagged theoretical sold; no silent zero |
 | Low adoption | High | fast forms, mobile/tablet-friendly UI, pilot with one branch |
 | Incorrect AI output | Medium/High | schema validation, confidence/warnings, approval gate |
-| Scope creep FOH | High | ADR BOH-first, integration contract riêng |
+| Scope creep across restaurant operations | High | Production domain map, dependency plan and explicit non-goals |
 | Duplicate stock mutation | Critical | DB transaction + idempotency + audit |
 
 ## 9. Definition of Ready / Done
@@ -237,3 +252,49 @@ Story có actor, business value, precondition, acceptance criteria, data fields,
 ### Done
 
 Code + migration + API contract + UI state + tests + audit + docs được cập nhật; acceptance criteria pass; không có secret trong commit.
+
+## 10. Production capability analysis
+
+### Reservation, walk-in, floor and table
+
+- Reservation phải tách `hold`, `confirmed`, `arrived`, `seated`, `completed`,
+  `cancelled`, `no_show`; không tự coi reservation confirmed là khách đã đến.
+- Capacity phải tính theo table/area/service hours và policy overlap; table bị
+  blocked/maintenance/dirty không được assign.
+- Walk-in và front-door QR dùng chung queue policy/read model để Host không thấy
+  hai hàng chờ mâu thuẫn.
+- Seating mở `ServiceSession`; payment/close mới chuyển table sang cleaning.
+- Transfer/merge phải giữ history, order lines, bill links và audit; không copy
+  lại record làm mất source ID.
+
+### Menu, order, station and service
+
+- Menu item có price/effective time, modifier, allergen, availability và station;
+  order snapshot không thay đổi khi menu master đổi.
+- Draft order có thể sửa; send tạo immutable ticket snapshot cho Kitchen/Bar.
+- Mỗi ticket item có preparation timestamps, delay/shortage/reject reason và
+  server hand-off; station chỉ thấy dữ liệu cần cho task.
+- Additional order là round mới trong cùng service session/bill; không tạo bàn
+  hoặc customer record mới.
+
+### Billing, payments and closing
+
+- Bill lấy từ served/open order lines, lưu price/tax/service-charge/discount
+  snapshot và không tự đổi khi menu đổi.
+- Split bill phải bảo toàn tổng; payment/refund dùng external reference và
+  idempotency, webhook retry không double-post.
+- Discount, void, refund và manual payment cần đúng permission/reason; record đã
+  paid chỉ thay đổi bằng compensating event.
+- End-of-day phải reconcile bill/payment/refund/cash/card/transfer theo branch,
+  shift và business date trước khi close.
+
+### Staff, privacy and failure handling
+
+- Role scope theo branch/station/financial data; Kitchen/Bar không xem payment;
+  Cashier không sửa menu; Server không xóa paid bill.
+- DB failure phải fail closed; payment uncertainty phải vào `PENDING`/reconcile,
+  không báo thành công chỉ vì provider timeout.
+- Notification, ticket print, receipt delivery và AI là side effects; thất bại
+  không được làm mất source command.
+- Mọi UI production phải có empty/loading/error/retry, audit link và manual
+  fallback phù hợp vai trò.
