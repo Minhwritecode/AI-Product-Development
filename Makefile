@@ -1,7 +1,7 @@
-.PHONY: help install dev build test lint typecheck infra-up infra-down logs
+.PHONY: help install dev build test lint typecheck db-migrate db-seed infra-up infra-down logs
 
 help:
-	@echo "make install | dev | build | test | lint | typecheck | infra-up | infra-down | logs"
+	@echo "make install | dev | build | test | lint | typecheck | db-migrate | db-seed | infra-up | infra-down | logs"
 
 install:
 	npm install
@@ -20,6 +20,12 @@ lint:
 
 typecheck:
 	npm run typecheck
+
+db-migrate:
+	npm run db:migrate --workspace backend
+
+db-seed:
+	npm run db:seed --workspace backend
 
 infra-up:
 	docker compose up -d postgres redis
