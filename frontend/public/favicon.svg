@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <!-- Background subtle ambient glow -->
+    <radialGradient id="luminex-glow" cx="45%" cy="55%" r="65%">
+      <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.35"/>
+      <stop offset="60%" stop-color="#0f766e" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#081016" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- BOH Vertical Pillar Gradient: Digital Emerald / Precision Cyan -->
+    <linearGradient id="boh-pillar" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5eead4"/>
+      <stop offset="50%" stop-color="#14b8a6"/>
+      <stop offset="100%" stop-color="#0f766e"/>
+    </linearGradient>
+
+    <!-- FOH Horizontal Crescent / Cloche Gradient: Warm Amber / Hospitality Gold -->
+    <linearGradient id="foh-arc" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="60%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#fef08a"/>
+    </linearGradient>
+
+    <!-- Spark Flare Gradient -->
+    <radialGradient id="spark-flare" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="35%" stop-color="#99f6e4"/>
+      <stop offset="70%" stop-color="#2dd4bf" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Dark rounded container with fine metallic border -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="#0b171d" stroke="rgba(94, 234, 212, 0.28)" stroke-width="1.5"/>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#luminex-glow)"/>
+
+  <!-- Back-of-House (BOH) Vertical Pillar - Precision, Inventory, Kitchen Foundation -->
+  <path d="M19 14 C19 12.34 20.34 11 22 11 L28 11 C29.66 11 31 12.34 31 14 L31 38 C31 40 29.5 41.5 27.5 41.5 L22 41.5 C20.34 41.5 19 40.16 19 38.5 Z" fill="url(#boh-pillar)" />
+
+  <!-- Front-of-House (FOH) Horizontal Cloche Curve - Hospitality, Guest Warmth, Dining Dome -->
+  <path d="M22 40 C22 35.58 25.58 32 30 32 L46 32 C49.31 32 52 34.69 52 38 C52 44.63 46.63 50 40 50 L25 50 C23.34 50 22 48.66 22 47 Z" fill="url(#foh-arc)" />
+
+  <!-- The Nexus Bridge: Interlocking L-Corner -->
+  <path d="M19 36 L31 36 L31 48 C31 49.1 30.1 50 29 50 L22 50 C20.34 50 19 48.66 19 47 Z" fill="#0f766e" opacity="0.9"/>
+
+  <!-- The Luminary Spark: Synchronizing FOH & BOH in real-time -->
+  <circle cx="28" cy="38" r="8" fill="url(#spark-flare)" opacity="0.85"/>
+  <!-- 4-point Diamond Star -->
+  <path d="M28 29 Q28 38 37 38 Q28 38 28 47 Q28 38 19 38 Q28 38 28 29 Z" fill="#ffffff" />
+  <circle cx="28" cy="38" r="1.8" fill="#fef08a" />
+
+  <!-- Cloche service handle dot (subtle hospitality nod) -->
+  <circle cx="49" cy="35" r="2.2" fill="#fef08a" />
+</svg>

@@ -1,6 +1,10 @@
+<p align="center">
+  <img src="docs/assets/luminex-logo.svg" alt="Luminex Operations OS" width="320" />
+</p>
+
 # Luminex – Hệ thống quản trị vận hành nhà hàng thông minh
 
-Luminex là nền tảng quản trị vận hành nhà hàng từ Front-of-House (FOH) đến Back-of-House (BOH). Mục tiêu production core là nối liền hành trình reservation/walk-in → seating → order → kitchen/bar → serving → billing/payment → closing với purchasing, stock, count và wastage cho mô hình F&B nhiều chi nhánh.
+Luminex là nền tảng quản trị vận hành nhà hàng kết nối Front-of-House (FOH) đến Back-of-House (BOH). Mục tiêu production core là nối liền hành trình reservation/walk-in → seating → order → kitchen/bar → serving → billing/payment → closing với purchasing, stock, count và wastage cho mô hình F&B nhiều chi nhánh. Xem chi tiết nhận diện thương hiệu tại [Brand Identity](docs/uiux/brand-identity.md).
 
 ## Trạng thái dự án
 
