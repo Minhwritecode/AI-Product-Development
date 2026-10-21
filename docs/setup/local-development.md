@@ -1,4 +1,4 @@
-# Local Development Setup
+# Development Setup
 
 ## Prerequisites
 
@@ -21,7 +21,9 @@ docker compose version
 ```bash
 cp .env.example .env
 npm install
-make infra-up
+make cloud-config-check
+npm run db:migrate --workspace backend
+npm run db:seed --workspace backend
 npm run dev
 ```
 
@@ -46,37 +48,41 @@ permission scope, error contract and test fixture exist.
 
 ## Environment policy
 
-- `.env` local only; không commit.
+- `.env` chỉ chứa connection string tới cloud development/staging; không commit.
+- Không chạy PostgreSQL local và không dùng database local làm source of truth.
+- `DATABASE_URL` phải là managed PostgreSQL; `DATABASE_SSL=true` là mặc định.
+- `REDIS_URL` ưu tiên managed Redis; Redis chỉ là cache/rate-limit/session support.
 - `LLM_PROVIDER=mock` dùng để phát triển không gọi provider thật.
 - API key thật chỉ được nạp từ secret manager/CI secret.
 
 ## Docker
 
-```bash
-docker compose up -d postgres redis
-docker compose logs -f postgres
-docker compose down
-```
-
-Để chạy app qua Compose sau khi skeleton đã có implementation:
+Docker Compose chỉ chạy backend/frontend; backend kết nối cloud PostgreSQL/Redis
+đã cấu hình trong `.env`. Backend tự chạy migration idempotent trước khi start;
+seed chỉ chạy khi `LUMINEX_SEED_ON_START=true` và không được bật ở production:
 
 ```bash
-docker compose up --build
+make app-up
+# hoặc: docker compose up -d --build
+make logs
+make app-down
 ```
 
-## Database workflow (planned)
+## Database workflow
 
-Các lệnh sẽ được nối vào migration tool khi schema được implement:
+Migration chạy theo thứ tự từ database cloud rỗng; seed chỉ dành cho development
+hoặc staging:
 
 ```bash
 npm run db:migrate
 npm run db:seed
-npm run db:test-reset
 ```
 
 ## Troubleshooting
 
-- Port đã dùng: đổi `FRONTEND_PORT`, `BACKEND_PORT`, `POSTGRES_PORT`, `REDIS_PORT` trong `.env`.
-- DB connection fail: kiểm tra `docker compose ps` và `DATABASE_URL`.
-- Dashboard stale: clear Redis volume/cache sau khi xác nhận đây là môi trường local.
+- Port đã dùng: đổi `FRONTEND_PORT` hoặc `BACKEND_PORT` trong `.env`.
+- DB connection fail: kiểm tra `DATABASE_URL`, TLS option, provider allowlist và `/ready`.
+- Dashboard stale: kiểm tra managed Redis health hoặc fallback query DB.
 - AI fail: đổi `LLM_PROVIDER=mock`; kiểm tra schema/output trước khi thử provider thật.
+
+Chi tiết provider, secret và backup nằm tại [Cloud Database & Runtime Configuration](cloud-database.md).

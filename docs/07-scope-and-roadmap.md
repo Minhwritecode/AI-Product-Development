@@ -43,6 +43,27 @@ Order + Recipe + Sales Mapping → Theoretical Usage → FOH/BOH Decision Suppor
 - Autonomous AI, auto-PO không duyệt, exact table-turnover promise và automated compensation.
 - Multi-region HA/DR, enterprise SSO/SCIM, fraud platform và data warehouse.
 
+## 1.1 Implementation status
+
+Roadmap này đã bao phủ toàn bộ production core; trạng thái code hiện tại không
+được hiểu là đã hoàn thành toàn bộ 16 tuần:
+
+- Đã có vertical slice: Tuần 1–2.
+- Đã hoàn thành Weeks 3–4 theo vertical slice: staff, shift, shift/station
+  assignment, task owner/handover/escalation, notification event, unit catalog,
+  canonical conversion, supplier/category/menu, menu version/effective time,
+  modifier, allergen registry, availability và recipe version/station mapping.
+- Weeks 3–4 có migration `004_weeks_3_4_completion.sql`, API command có
+  permission/branch scope/transaction/audit, memory fixture, UI staff/master data,
+  test acceptance và anti-slop lint/typecheck evidence. Chưa triển khai production
+  code của Weeks 5–16.
+- Chưa triển khai production code: Tuần 5–16, gồm stock ledger, FOH queue,
+  service/order, kitchen/bar, billing/payment, reporting, AI boundary hardening,
+  release hardening và mobile delivery.
+
+Mỗi mục chỉ được chuyển sang “Done” khi có migration, command/API, permission,
+audit, failure path, test và browser evidence theo Definition of Done bên dưới.
+
 ## 2. Dependency order
 
 1. Platform: API contract, auth, branch scope, migration, audit, idempotency.
@@ -188,15 +209,20 @@ AI authorized projection, recipe suggestion và read-only copilot.
 **Acceptance:** reports có branch/timezone/as_of/source; unmapped external event
 không mutate stock; AI không direct DB/mutation; suggestion có confidence/warning/approval.
 
-### Tuần 16 — Production hardening và release readiness
+### Tuần 16 — Production hardening, release readiness và mobile delivery
 
 **Scope:** security review, rate limit, PII/token/payment redaction, performance,
 background retry, backup/restore, observability, migration rollback, accessibility,
-browser/device matrix, failure drills và end-to-end UAT.
+browser/device matrix, failure drills, end-to-end UAT và ứng dụng mobile đa nền
+tảng cho các luồng vận hành ưu tiên.
 
 **Acceptance:** full guest/FOH/BOH/billing journeys pass; cross-branch isolation;
 duplicate/retry/timeout/DB failure recovery; kitchen/bar/payment privacy; backup
-restore verified; release checklist và runbook hoàn thành.
+restore verified; release checklist và runbook hoàn thành. Mobile build được cho
+iOS và Android, dùng chung API contract/auth/branch scope, hỗ trợ safe area,
+deep link từ notification/QR, push delivery state, offline/read-only fallback và
+retry rõ ràng; guest mobile và staff tablet có smoke test cho queue, table request,
+task/inbox và BOH exception.
 
 ## 4. Production release gates
 
@@ -218,6 +244,9 @@ restore verified; release checklist và runbook hoàn thành.
 - Reservation hold/grace/no-show/overbooking và table assignment policy.
 - Cleaning checklist/SLA, service course và serve-together behavior.
 - Menu/price/modifier/allergen versioning và local tax/service-charge rules.
+- Stack mobile cross-platform (ưu tiên React Native/Expo vì frontend hiện tại là
+  TypeScript/React), push provider, deep-link ownership và quy trình phát hành
+  TestFlight/Play Internal Testing phải được chốt trước khi bắt đầu mobile slice.
 - Payment providers, webhook trust, settlement, refund authority và receipt channel.
 - Shift/attendance scope, business-day timezone và branch close authority.
 - Inventory valuation, POS/sales mapping, missing-sales behavior và accounting export.

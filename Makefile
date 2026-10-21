@@ -1,7 +1,7 @@
-.PHONY: help install dev build test lint typecheck db-migrate db-seed infra-up infra-down logs
+.PHONY: help install dev build test lint typecheck db-migrate db-seed cloud-config-check docker-build app-up app-down logs
 
 help:
-	@echo "make install | dev | build | test | lint | typecheck | db-migrate | db-seed | infra-up | infra-down | logs"
+	@echo "make install | dev | build | test | lint | typecheck | db-migrate | db-seed | cloud-config-check | docker-build | app-up | app-down | logs"
 
 install:
 	npm install
@@ -27,10 +27,17 @@ db-migrate:
 db-seed:
 	npm run db:seed --workspace backend
 
-infra-up:
-	docker compose up -d postgres redis
+cloud-config-check:
+	docker compose config >/dev/null
+	@echo "Cloud runtime configuration syntax is valid."
 
-infra-down:
+docker-build:
+	docker compose build
+
+app-up:
+	docker compose up -d --build
+
+app-down:
 	docker compose down
 
 logs:

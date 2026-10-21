@@ -4,7 +4,7 @@ Luminex là nền tảng quản trị vận hành nhà hàng từ Front-of-House
 
 ## Trạng thái dự án
 
-- Giai đoạn: Product Definition hoàn tất; chuẩn bị implementation production core.
+- Giai đoạn: Weeks 1–2 đã có vertical slice; Weeks 3–4 đang hoàn thiện nền tảng staff/task và BOH master data. Weeks 5–16 chưa phải production live.
 - Phạm vi production core: restaurant/branch setup, RBAC, staff/shift, reservation, walk-in/queue, floor/table/seating/cleaning, menu/order, kitchen/bar tickets, serving, billing/payment/refund/receipt/EOD và BOH inventory/purchasing/count/wastage/dashboard.
 - FOH QR là entry point bổ trợ cho full FOH, không thay thế flow phục vụ trực tiếp của Host, Server, Kitchen, Bar và Cashier.
 - AI: chỉ gợi ý/giải thích; mọi thay đổi dữ liệu phải được người dùng xem và duyệt.
@@ -25,14 +25,15 @@ Luminex là nền tảng quản trị vận hành nhà hàng từ Front-of-House
 
 Danh mục tài liệu nằm tại [docs/README.md](docs/README.md). Nguồn và cách xử lý mâu thuẫn được ghi tại [docs/00-source-synthesis.md](docs/00-source-synthesis.md).
 
-## Chạy nhanh môi trường nền
+## Chạy nhanh với hạ tầng cloud
 
 ```bash
 cp .env.example .env
-make infra-up
+make cloud-config-check
+make app-up
 ```
 
-Các service nền: PostgreSQL, Redis. Frontend/backend hiện là skeleton để đội phát triển bổ sung theo PRD; xem [docs/setup/local-development.md](docs/setup/local-development.md) để chạy toàn bộ.
+Docker Compose chỉ chạy backend/frontend và kết nối tới managed PostgreSQL + Redis qua biến môi trường; repository không dựng database local. Xem [hướng dẫn cloud](docs/setup/cloud-database.md) và [hướng dẫn phát triển](docs/setup/local-development.md).
 
 ## Nguyên tắc dự án
 
@@ -49,8 +50,9 @@ make help       # xem các lệnh
 make install    # cài dependency workspace
 make dev        # chạy frontend + backend
 make test       # chạy kiểm thử
-make infra-up   # chạy PostgreSQL + Redis
-make infra-down # dừng hạ tầng
+make cloud-config-check # kiểm tra Compose đã nhận cloud credentials
+make app-up     # build và chạy backend + frontend, dùng cloud PostgreSQL + Redis
+make app-down   # dừng toàn bộ Compose stack
 ```
 
 ## License
