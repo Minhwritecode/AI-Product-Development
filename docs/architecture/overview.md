@@ -108,10 +108,13 @@ does not roll back the business record.
 
 ## Deployment baseline
 
-Docker Compose cho local: PostgreSQL + Redis + backend + frontend. Production
-core requires managed PostgreSQL backup/restore, TLS/reverse proxy, secret
-management, background job runner, structured logs/metrics and documented
-rollback. Multi-region replication, HA/DR và CDN nâng cao là enterprise roadmap.
+PostgreSQL và Redis là managed cloud services ở mọi môi trường chạy ứng dụng;
+Docker Compose chỉ đóng gói backend/frontend và nhận connection string qua
+secret environment. Không commit credential, không mount volume database local
+và không dùng database local làm source of truth. Production core requires
+managed PostgreSQL backup/restore, TLS/reverse proxy, secret management,
+background job runner, structured logs/metrics and documented rollback.
+Multi-region replication, HA/DR và CDN nâng cao là enterprise roadmap.
 
 ## Failure handling
 

@@ -5,11 +5,14 @@ import fastifyJwt from '@fastify/jwt';
 import { AppError, assert, assertPermission } from './platform/errors.js';
 import { createMemoryRepository } from './platform/memory-repository.js';
 import type { Actor, PlatformRepository } from './platform/types.js';
+import { createMemoryOperationsRepository } from './operations/memory-repository.js';
+import type { CreateAssignmentInput, CreateCategoryInput, CreateIngredientInput, CreateMenuItemInput, CreateMenuVersionInput, CreateModifierGroupInput, CreateRecipeInput, CreateShiftInput, CreateStaffInput, CreateStationAssignmentInput, CreateSupplierInput, CreateTaskInput, OperationsRepository, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, TaskCommandInput } from './operations/types.js';
 
 type JwtPayload = { sub: string; sid: string };
 
 type AppOptions = {
   repository?: PlatformRepository;
+  operationsRepository?: OperationsRepository;
   jwtSecret?: string;
   databaseStatus?: () => Promise<'ok' | 'unavailable' | 'not-configured'>;
 };
@@ -23,6 +26,36 @@ const branchSchema = { body: { type: 'object', required: ['name', 'code'], prope
 const areaSchema = { body: { type: 'object', required: ['name'], properties: { name: { type: 'string', minLength: 2 }, sortOrder: { type: 'integer', minimum: 1 } }, additionalProperties: false } } as const;
 
 const tableSchema = { body: { type: 'object', required: ['label', 'capacity'], properties: { label: { type: 'string', minLength: 1 }, capacity: { type: 'integer', minimum: 1, maximum: 30 }, accessibilityTags: { type: 'array', items: { type: 'string' } } }, additionalProperties: false } } as const;
+
+const staffSchema = { body: { type: 'object', required: ['branchId', 'displayName', 'email', 'roleCodes'], properties: { branchId: { type: 'string', minLength: 1 }, displayName: { type: 'string', minLength: 2 }, email: { type: 'string', format: 'email' }, roleCodes: { type: 'array', minItems: 1, items: { type: 'string' } }, stationCodes: { type: 'array', items: { type: 'string' } }, stationAssignments: { type: 'array', items: { type: 'object', required: ['roleCode', 'stationCode'], properties: { roleCode: { type: 'string' }, stationCode: { type: 'string', minLength: 1 } }, additionalProperties: false } } }, additionalProperties: false } } as const;
+
+const shiftSchema = { body: { type: 'object', required: ['branchId', 'label', 'startsAt', 'endsAt'], properties: { branchId: { type: 'string' }, label: { type: 'string', minLength: 2 }, startsAt: { type: 'string', format: 'date-time' }, endsAt: { type: 'string', format: 'date-time' } }, additionalProperties: false } } as const;
+
+const assignmentSchema = { body: { type: 'object', required: ['staffId', 'roleCode'], properties: { staffId: { type: 'string' }, roleCode: { type: 'string' }, stationCode: { type: 'string' } }, additionalProperties: false } } as const;
+
+const taskSchema = { body: { type: 'object', required: ['branchId', 'title', 'sourceType'], properties: { branchId: { type: 'string' }, title: { type: 'string', minLength: 2 }, sourceType: { type: 'string', enum: ['SHIFT', 'QR_REQUEST', 'QUEUE', 'EXCEPTION', 'MANUAL'] }, sourceId: { type: 'string' }, priority: { type: 'string', enum: ['LOW', 'NORMAL', 'HIGH', 'URGENT'] }, requiredRole: { type: 'string' }, stationCode: { type: 'string' }, ownerId: { type: 'string' }, dueAt: { type: 'string', format: 'date-time' } }, additionalProperties: false } } as const;
+
+const taskCommandSchema = { body: { type: 'object', properties: { note: { type: 'string', maxLength: 500 }, ownerId: { type: 'string' }, stationCode: { type: 'string', minLength: 1 } }, additionalProperties: false } } as const;
+
+const ingredientSchema = { body: { type: 'object', required: ['name', 'purchaseUnit', 'stockUnit', 'purchaseToStock', 'standardCost'], properties: { name: { type: 'string', minLength: 2 }, purchaseUnit: { type: 'string', minLength: 1 }, stockUnit: { type: 'string', minLength: 1 }, purchaseToStock: { type: 'number', exclusiveMinimum: 0 }, standardCost: { type: 'number', minimum: 0 } }, additionalProperties: false } } as const;
+
+const supplierSchema = { body: { type: 'object', required: ['code', 'name'], properties: { code: { type: 'string', minLength: 2 }, name: { type: 'string', minLength: 2 } }, additionalProperties: false } } as const;
+
+const categorySchema = { body: { type: 'object', required: ['name'], properties: { name: { type: 'string', minLength: 2 }, sortOrder: { type: 'integer', minimum: 1 } }, additionalProperties: false } } as const;
+
+const menuItemSchema = { body: { type: 'object', required: ['categoryId', 'name', 'price', 'stationCode'], properties: { categoryId: { type: 'string' }, name: { type: 'string', minLength: 2 }, description: { type: 'string' }, price: { type: 'number', minimum: 0 }, currency: { type: 'string', minLength: 3, maxLength: 3 }, allergenCodes: { type: 'array', items: { type: 'string' } }, stationCode: { type: 'string', enum: ['KITCHEN', 'BAR'] } }, additionalProperties: false } } as const;
+
+const recipeSchema = { body: { type: 'object', required: ['menuItemId', 'stationCode', 'lines'], properties: { menuItemId: { type: 'string' }, stationCode: { type: 'string', enum: ['KITCHEN', 'BAR'] }, lines: { type: 'array', minItems: 1, items: { type: 'object', required: ['ingredientId', 'quantity', 'unit'], properties: { ingredientId: { type: 'string' }, quantity: { type: 'number', exclusiveMinimum: 0 }, unit: { type: 'string', minLength: 1 } }, additionalProperties: false } } }, additionalProperties: false } } as const;
+
+const stationAssignmentSchema = { body: { type: 'object', required: ['branchId', 'roleCode', 'stationCode'], properties: { branchId: { type: 'string' }, roleCode: { type: 'string' }, stationCode: { type: 'string', minLength: 1 }, effectiveFrom: { type: 'string', format: 'date-time' } }, additionalProperties: false } } as const;
+
+const menuVersionSchema = { body: { type: 'object', required: ['menuItemId', 'price', 'effectiveFrom'], properties: { menuItemId: { type: 'string' }, price: { type: 'number', minimum: 0 }, effectiveFrom: { type: 'string', format: 'date-time' } }, additionalProperties: false } } as const;
+
+const modifierSchema = { body: { type: 'object', required: ['menuItemId', 'name', 'options'], properties: { menuItemId: { type: 'string' }, name: { type: 'string', minLength: 2 }, required: { type: 'boolean' }, options: { type: 'array', minItems: 1, items: { type: 'object', required: ['label'], properties: { label: { type: 'string', minLength: 1 }, priceDelta: { type: 'number' } }, additionalProperties: false } } }, additionalProperties: false } } as const;
+
+const allergensSchema = { body: { type: 'object', required: ['allergenCodes'], properties: { allergenCodes: { type: 'array', uniqueItems: true, items: { type: 'string' } } }, additionalProperties: false } } as const;
+
+const availabilitySchema = { body: { type: 'object', required: ['status'], properties: { status: { type: 'string', enum: ['PUBLISHED', 'UNAVAILABLE', 'INACTIVE'] }, reason: { type: 'string', maxLength: 500 } }, additionalProperties: false } } as const;
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -43,6 +76,7 @@ function readBody<T>(request: FastifyRequest): T {
 export function buildApp(options: AppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true, requestIdHeader: 'x-request-id' });
   const repository = options.repository ?? createMemoryRepository();
+  const operationsRepository = options.operationsRepository ?? createMemoryOperationsRepository();
   const jwtSecret = options.jwtSecret ?? process.env.JWT_SECRET ?? 'luminex-local-development-secret';
 
   app.register(cors, { origin: true });
@@ -89,7 +123,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
 
   app.get('/ready', async (request, reply) => {
     const postgres = options.databaseStatus ? await options.databaseStatus() : 'not-configured';
-    const ready = postgres !== 'unavailable';
+    const ready = postgres === 'ok';
 
     return reply.code(ready ? 200 : 503).send(envelope({ status: ready ? 'ready' : 'degraded', dependencies: { postgres } }, request.id));
   });
@@ -150,6 +184,28 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
 
     return reply.code(201).send(envelope(await repository.createTable(actor(request), request.params.areaId, { label: input.label, capacity: input.capacity, accessibilityTags: input.accessibilityTags }, request.id), request.id));
   });
+
+  app.get<{ Querystring: { branchId: string } }>('/api/v1/operations/workspace', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.getStaffWorkspace(actor(request), request.query.branchId), request.id));
+  app.post<{ Body: CreateStaffInput }>('/api/v1/staff', { preHandler: authenticate, schema: staffSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createStaff(actor(request), readBody<CreateStaffInput>(request), request.id), request.id)));
+  app.post<{ Body: CreateShiftInput }>('/api/v1/shifts', { preHandler: authenticate, schema: shiftSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createShift(actor(request), readBody<CreateShiftInput>(request), request.id), request.id)));
+  app.post<{ Params: { shiftId: string }; Body: CreateAssignmentInput }>('/api/v1/shifts/:shiftId/assignments', { preHandler: authenticate, schema: assignmentSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.assignShift(actor(request), request.params.shiftId, readBody<CreateAssignmentInput>(request), request.id), request.id)));
+  app.post<{ Params: { staffId: string }; Body: CreateStationAssignmentInput }>('/api/v1/staff/:staffId/station-assignments', { preHandler: authenticate, schema: stationAssignmentSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createStationAssignment(actor(request), request.params.staffId, readBody<CreateStationAssignmentInput>(request), request.id), request.id)));
+  app.post<{ Body: CreateTaskInput }>('/api/v1/operational-tasks', { preHandler: authenticate, schema: taskSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createTask(actor(request), readBody<CreateTaskInput>(request), request.id), request.id)));
+  app.post<{ Params: { taskId: string; command: 'claim' | 'route' | 'resolve' | 'escalate' | 'handover' }; Body: TaskCommandInput }>('/api/v1/operational-tasks/:taskId/:command', { preHandler: authenticate, schema: taskCommandSchema }, async (request) => { assert(['claim', 'route', 'resolve', 'escalate', 'handover'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported task command');
+
+ return envelope(await operationsRepository.commandTask(actor(request), request.params.taskId, request.params.command, readBody<TaskCommandInput>(request), request.id), request.id); });
+  app.get<{ Querystring: { branchId: string } }>('/api/v1/master-data/overview', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.getMasterData(actor(request), request.query.branchId), request.id));
+  app.post<{ Body: CreateIngredientInput }>('/api/v1/ingredients', { preHandler: authenticate, schema: ingredientSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createIngredient(actor(request), readBody<CreateIngredientInput>(request), request.id), request.id)));
+  app.post<{ Body: CreateSupplierInput }>('/api/v1/suppliers', { preHandler: authenticate, schema: supplierSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createSupplier(actor(request), readBody<CreateSupplierInput>(request), request.id), request.id)));
+  app.post<{ Body: CreateCategoryInput }>('/api/v1/menu/categories', { preHandler: authenticate, schema: categorySchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createCategory(actor(request), readBody<CreateCategoryInput>(request), request.id), request.id)));
+  app.post<{ Body: CreateMenuItemInput }>('/api/v1/menu/items', { preHandler: authenticate, schema: menuItemSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createMenuItem(actor(request), readBody<CreateMenuItemInput>(request), request.id), request.id)));
+  app.post<{ Params: { menuItemId: string } }>('/api/v1/menu/items/:menuItemId/publish', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.publishMenuItem(actor(request), request.params.menuItemId, request.id), request.id));
+  app.post<{ Body: CreateMenuVersionInput }>('/api/v1/menu/versions', { preHandler: authenticate, schema: menuVersionSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createMenuVersion(actor(request), readBody<CreateMenuVersionInput>(request), request.id), request.id)));
+  app.post<{ Body: CreateModifierGroupInput }>('/api/v1/menu/modifier-groups', { preHandler: authenticate, schema: modifierSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createModifierGroup(actor(request), readBody<CreateModifierGroupInput>(request), request.id), request.id)));
+  app.post<{ Params: { menuItemId: string }; Body: SetMenuItemAllergensInput }>('/api/v1/menu/items/:menuItemId/allergens', { preHandler: authenticate, schema: allergensSchema }, async (request) => envelope(await operationsRepository.setMenuItemAllergens(actor(request), request.params.menuItemId, readBody<SetMenuItemAllergensInput>(request), request.id), request.id));
+  app.post<{ Params: { menuItemId: string }; Body: SetMenuItemAvailabilityInput }>('/api/v1/menu/items/:menuItemId/availability', { preHandler: authenticate, schema: availabilitySchema }, async (request) => envelope(await operationsRepository.setMenuItemAvailability(actor(request), request.params.menuItemId, readBody<SetMenuItemAvailabilityInput>(request), request.id), request.id));
+  app.post<{ Body: CreateRecipeInput }>('/api/v1/recipes', { preHandler: authenticate, schema: recipeSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createRecipe(actor(request), readBody<CreateRecipeInput>(request), request.id), request.id)));
+  app.post<{ Params: { recipeId: string } }>('/api/v1/recipes/:recipeId/publish', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.publishRecipe(actor(request), request.params.recipeId, request.id), request.id));
 
   return app;
 }

@@ -8,7 +8,10 @@ const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) throw new Error('DATABASE_URL is required for db:migrate');
 
-const pool = createPool(databaseUrl);
+const pool = createPool(databaseUrl, {
+  ssl: process.env.DATABASE_SSL !== 'false',
+  rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false'
+});
 
 const migrationDirectory = join(dirname(fileURLToPath(import.meta.url)), 'migrations');
 
