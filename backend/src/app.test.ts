@@ -119,4 +119,60 @@ describe('health endpoints', () => {
     expect(unavailable.json().data.status).toBe('UNAVAILABLE');
     await app.close();
   });
+
+  it('covers weeks 5-6 receiving, transfer, count and wastage invariants', async () => {
+    const app = buildApp();
+    const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: 'admin@luminex.local', password: 'luminex-demo' } });
+    const token = String(login.json().data.token);
+    const auth = { authorization: `Bearer ${token}` };
+
+    const initialWorkspace = await app.inject({ method: 'GET', url: '/api/v1/boh/workspace?branchId=branch_central', headers: auth });
+    expect(initialWorkspace.statusCode).toBe(200);
+    expect(initialWorkspace.json().data.stockBalances).toEqual(expect.arrayContaining([expect.objectContaining({ locationId: 'location_warehouse', ingredientId: 'ingredient_chicken' })]));
+
+    const purchaseOrderPayload = { branchId: 'branch_central', supplierId: 'supplier_fresh', lines: [{ ingredientId: 'ingredient_coffee', orderedQuantity: 2, unit: 'kg' }] };
+    const purchaseOrder = await app.inject({ method: 'POST', url: '/api/v1/purchase-orders', headers: { ...auth, 'idempotency-key': 'po-create-001' }, payload: purchaseOrderPayload });
+    expect(purchaseOrder.statusCode).toBe(201);
+    const purchaseOrderId = String(purchaseOrder.json().data.id);
+    const purchaseOrderRetry = await app.inject({ method: 'POST', url: '/api/v1/purchase-orders', headers: { ...auth, 'idempotency-key': 'po-create-001' }, payload: purchaseOrderPayload });
+    expect(purchaseOrderRetry.statusCode).toBe(201);
+    expect(purchaseOrderRetry.json().data.id).toBe(purchaseOrderId);
+
+    const sent = await app.inject({ method: 'POST', url: `/api/v1/purchase-orders/${purchaseOrderId}/send`, headers: { ...auth, 'idempotency-key': 'po-send-001' } });
+    expect(sent.statusCode).toBe(200);
+    expect(sent.json().data.status).toBe('SENT');
+    const receiptPayload = { branchId: 'branch_central', purchaseOrderId, lines: [{ ingredientId: 'ingredient_coffee', acceptedQuantity: 1.5, damagedQuantity: 0.25, rejectedQuantity: 0.25, unit: 'kg' }] };
+    const receipt = await app.inject({ method: 'POST', url: '/api/v1/goods-receipts/confirm', headers: { ...auth, 'idempotency-key': 'receipt-001' }, payload: receiptPayload });
+    expect(receipt.statusCode).toBe(201);
+    const receiptRetry = await app.inject({ method: 'POST', url: '/api/v1/goods-receipts/confirm', headers: { ...auth, 'idempotency-key': 'receipt-001' }, payload: receiptPayload });
+    expect(receiptRetry.statusCode).toBe(201);
+    expect(receiptRetry.json().data.id).toBe(receipt.json().data.id);
+
+    const stockRequest = await app.inject({ method: 'POST', url: '/api/v1/stock-requests', headers: { ...auth, 'idempotency-key': 'transfer-create-001' }, payload: { fromLocationId: 'location_warehouse', toLocationId: 'location_branch_central', reason: 'Bổ sung hàng cho giờ cao điểm', lines: [{ ingredientId: 'ingredient_chicken', requestedQuantity: 2, unit: 'kg' }] } });
+    expect(stockRequest.statusCode).toBe(201);
+    const stockRequestId = String(stockRequest.json().data.id);
+    const approved = await app.inject({ method: 'POST', url: `/api/v1/stock-requests/${stockRequestId}/approve`, headers: { ...auth, 'idempotency-key': 'transfer-approve-001' } });
+    expect(approved.json().data.status).toBe('APPROVED');
+    const shipped = await app.inject({ method: 'POST', url: `/api/v1/stock-requests/${stockRequestId}/ship`, headers: { ...auth, 'idempotency-key': 'transfer-ship-001' } });
+    expect(shipped.json().data.status).toBe('IN_TRANSIT');
+    const accepted = await app.inject({ method: 'POST', url: `/api/v1/stock-requests/${stockRequestId}/accept`, headers: { ...auth, 'idempotency-key': 'transfer-accept-001' } });
+    expect(accepted.json().data.status).toBe('CLOSED');
+
+    const count = await app.inject({ method: 'POST', url: '/api/v1/daily-counts', headers: { ...auth, 'idempotency-key': 'count-create-001' }, payload: { branchId: 'branch_central', businessDate: '2026-10-27', lines: [{ ingredientId: 'ingredient_chicken', openingQuantity: 8, receivedQuantity: 2, closingQuantity: 9, unit: 'kg' }] } });
+    expect(count.statusCode).toBe(201);
+    expect(count.json().data.lines[0].theoreticalSoldStatus).toBe('INCOMPLETE_THEORY');
+    const submittedCount = await app.inject({ method: 'POST', url: `/api/v1/daily-counts/${count.json().data.id}/submit`, headers: { ...auth, 'idempotency-key': 'count-submit-001' } });
+    expect(submittedCount.json().data.status).toBe('SUBMITTED');
+
+    const wastage = await app.inject({ method: 'POST', url: '/api/v1/wastage', headers: { ...auth, 'idempotency-key': 'wastage-create-001' }, payload: { branchId: 'branch_central', ingredientId: 'ingredient_chicken', quantity: 0.5, unit: 'kg', reason: 'Hư hỏng trong bảo quản', note: 'Kiểm tra cuối ca' } });
+    expect(wastage.statusCode).toBe(201);
+    expect(wastage.json().data.value).toBe(62500);
+    const submittedWastage = await app.inject({ method: 'POST', url: `/api/v1/wastage/${wastage.json().data.id}/submit`, headers: { ...auth, 'idempotency-key': 'wastage-submit-001' } });
+    expect(submittedWastage.json().data.status).toBe('SUBMITTED');
+
+    const finalWorkspace = await app.inject({ method: 'GET', url: '/api/v1/boh/workspace?branchId=branch_central', headers: auth });
+    expect(finalWorkspace.json().data.stockRequests).toEqual(expect.arrayContaining([expect.objectContaining({ id: stockRequestId, status: 'CLOSED' })]));
+    expect(finalWorkspace.json().data.ledger.filter((entry: { sourceId: string }) => entry.sourceId === stockRequestId)).toHaveLength(2);
+    await app.close();
+  });
 });

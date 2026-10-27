@@ -6,7 +6,7 @@ import type {
   CreateAssignmentInput, CreateCategoryInput, CreateIngredientInput, CreateMenuItemInput, CreateMenuVersionInput, CreateModifierGroupInput, CreateRecipeInput, CreateStationAssignmentInput,
   CreateShiftInput, CreateStaffInput, CreateSupplierInput, CreateTaskInput, Ingredient, MasterDataOverview,
   MenuCategory, MenuItem, MenuVersion, ModifierGroup, OperationalTask, OperationsRepository, RecipeLine,
-  RecipeVersion, Shift, ShiftAssignment, StaffProfile, StaffWorkspace, Supplier, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, StationAssignment, UnitDefinition, Allergen
+  RecipeVersion, Shift, ShiftAssignment, StaffProfile, StaffWorkspace, Supplier, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, StationAssignment, UnitDefinition, Allergen, BohWorkspace, CreateDailyCountInput, CreatePurchaseOrderInput, CreateStockRequestInput, CreateWastageInput, DailyCount, GoodsReceipt, PurchaseOrder, StockRequest, WastageRecord, StockBalance, StockLedgerEntry, ConfirmGoodsReceiptInput
 } from './types.js';
 
 type Executor = Pick<pg.Pool, 'query'>;
@@ -51,6 +51,16 @@ export function createPostgresOperationsRepository(pool: pg.Pool): OperationsRep
   function write(actor: Actor) { assertPermission(actor, 'master-data:write'); }
 
   function operationsWrite(actor: Actor, permission: string) { assertPermission(actor, permission); }
+
+  async function replay<T>(executor: Executor, actor: Actor, key: string, command: string): Promise<T | undefined> {
+    const result = await executor.query<{ response: T }>('SELECT response FROM idempotency_records WHERE idempotency_key = $1 AND actor_id = $2 AND command = $3', [key, actor.id, command]);
+
+    return result.rowCount ? result.rows[0].response : undefined;
+  }
+
+  async function remember<T>(executor: Executor, actor: Actor, key: string, command: string, response: T) {
+    await executor.query('INSERT INTO idempotency_records (idempotency_key, actor_id, command, response) VALUES ($1, $2, $3, $4)', [key, actor.id, command, JSON.stringify(response)]);
+  }
 
   function mapStaff(row: { id: string; branch_id: string; display_name: string; email: string; status: StaffProfile['status']; station_codes: string[]; role_codes: RoleCode[] }): StaffProfile {
     return { id: row.id, branchId: row.branch_id, displayName: row.display_name, email: row.email, status: row.status, stationCodes: row.station_codes ?? [], roleCodes: row.role_codes ?? [] };
@@ -338,6 +348,177 @@ export function createPostgresOperationsRepository(pool: pg.Pool): OperationsRep
  return transaction(async (client) => { const recipe = await client.query<{ id: string; menu_item_id: string; version: number; status: RecipeVersion['status']; station_code: RecipeVersion['stationCode']; published_at?: string }>('SELECT rv.id, rv.menu_item_id, rv.version, rv.status, rv.station_code, rv.published_at FROM recipe_versions rv JOIN menu_items mi ON mi.id = rv.menu_item_id WHERE rv.id = $1 AND mi.restaurant_id = $2 FOR UPDATE', [recipeId, rid]); assert(recipe.rowCount, 'NOT_FOUND', 'Recipe not found', 404); const lines = await client.query<{ ingredient_id: string; quantity: NumericRow; unit: string; canonical_quantity?: NumericRow }>('SELECT ingredient_id, quantity, unit, canonical_quantity FROM recipe_lines WHERE recipe_version_id = $1', [recipeId]); assert(lines.rowCount, 'VALIDATION_ERROR', 'Recipe needs at least one ingredient line'); await client.query('UPDATE recipe_versions SET status = \'RETIRED\' WHERE menu_item_id = $1 AND status = \'PUBLISHED\'', [recipe.rows[0].menu_item_id]); const result = await client.query('UPDATE recipe_versions SET status = \'PUBLISHED\', published_at = now() WHERE id = $1 RETURNING id, menu_item_id, version, status, station_code, published_at', [recipeId]); await audit(client, actor, requestId, 'RECIPE_PUBLISHED', 'RECIPE_VERSION', recipeId); const row = result.rows[0];
 
  // SAFETY: The returned version is locked, scoped to the actor restaurant, and its lines were read by recipe_version_id.
- return { id: row.id, menuItemId: row.menu_item_id, version: row.version, status: row.status, stationCode: row.station_code, publishedAt: row.published_at, lines: lines.rows.map((line): RecipeLine => ({ ingredientId: line.ingredient_id, quantity: Number(line.quantity), unit: line.unit, canonicalQuantity: line.canonical_quantity === null || line.canonical_quantity === undefined ? undefined : Number(line.canonical_quantity) })) } as RecipeVersion; }); }
+ return { id: row.id, menuItemId: row.menu_item_id, version: row.version, status: row.status, stationCode: row.station_code, publishedAt: row.published_at, lines: lines.rows.map((line): RecipeLine => ({ ingredientId: line.ingredient_id, quantity: Number(line.quantity), unit: line.unit, canonicalQuantity: line.canonical_quantity === null || line.canonical_quantity === undefined ? undefined : Number(line.canonical_quantity) })) } as RecipeVersion; }); },
+    async getBohWorkspace(actor, branchId): Promise<BohWorkspace> {
+      assertBranchScope(actor, branchId);
+
+      const [poRows, poLineRows, receiptRows, receiptLineRows, balanceRows, requestRows, requestLineRows, countRows, countLineRows, wastageRows, ledgerRows] = await Promise.all([
+        pool.query('SELECT id, branch_id, supplier_id, status, created_at, updated_at FROM purchase_orders WHERE branch_id = $1 ORDER BY updated_at DESC', [branchId]),
+        pool.query('SELECT pol.id, pol.purchase_order_id, pol.ingredient_id, pol.ordered_quantity, pol.received_quantity, pol.unit FROM purchase_order_lines pol JOIN purchase_orders po ON po.id = pol.purchase_order_id WHERE po.branch_id = $1', [branchId]),
+        pool.query('SELECT id, branch_id, purchase_order_id, status, confirmed_at, created_at FROM goods_receipts WHERE branch_id = $1 ORDER BY created_at DESC', [branchId]),
+        pool.query('SELECT grl.goods_receipt_id, grl.ingredient_id, grl.accepted_quantity, grl.damaged_quantity, grl.rejected_quantity, grl.unit, grl.note FROM goods_receipt_lines grl JOIN goods_receipts gr ON gr.id = grl.goods_receipt_id WHERE gr.branch_id = $1', [branchId]),
+        pool.query('SELECT sb.location_id, sl.label AS location_label, sl.kind AS location_kind, sb.ingredient_id, sb.quantity, sb.unit, sb.updated_at FROM stock_balances sb JOIN stock_locations sl ON sl.id = sb.location_id WHERE sl.branch_id = $1 OR sl.kind = \'WAREHOUSE\'', [branchId]),
+        pool.query('SELECT sr.id, sr.from_location_id, sr.to_location_id, sr.status, sr.reason, sr.created_at, sr.updated_at FROM stock_requests sr JOIN stock_locations sl ON sl.id = sr.to_location_id WHERE sl.branch_id = $1 ORDER BY sr.updated_at DESC', [branchId]),
+        pool.query('SELECT srl.stock_request_id, srl.ingredient_id, srl.requested_quantity, srl.approved_quantity, srl.shipped_quantity, srl.received_quantity, srl.unit FROM stock_request_lines srl JOIN stock_requests sr ON sr.id = srl.stock_request_id JOIN stock_locations sl ON sl.id = sr.to_location_id WHERE sl.branch_id = $1', [branchId]),
+        pool.query('SELECT id, branch_id, business_date, status, submitted_at, created_at FROM daily_counts WHERE branch_id = $1 ORDER BY business_date DESC', [branchId]),
+        pool.query('SELECT dcl.daily_count_id, dcl.ingredient_id, dcl.opening_quantity, dcl.received_quantity, dcl.theoretical_sold_quantity, dcl.theoretical_sold_status, dcl.closing_quantity, dcl.variance_quantity, dcl.unit FROM daily_count_lines dcl JOIN daily_counts dc ON dc.id = dcl.daily_count_id WHERE dc.branch_id = $1', [branchId]),
+        pool.query('SELECT id, branch_id, ingredient_id, quantity, unit, reason, standard_price, value, status, note, created_at FROM wastage_records WHERE branch_id = $1 ORDER BY created_at DESC', [branchId]),
+        pool.query('SELECT il.id, il.location_id, il.ingredient_id, il.quantity_delta, il.unit, il.event_type, il.source_type, il.source_id, il.created_at FROM inventory_ledger il JOIN stock_locations sl ON sl.id = il.location_id WHERE sl.branch_id = $1 OR sl.kind = \'WAREHOUSE\' ORDER BY il.created_at DESC LIMIT 100', [branchId])
+      ]);
+
+      // SAFETY: The query selects every column in this domain row shape, and the repository maps numeric values explicitly below.
+      const poLines = poLineRows.rows as { id: string; purchase_order_id: string; ingredient_id: string; ordered_quantity: NumericRow; received_quantity: NumericRow; unit: string }[];
+
+      // SAFETY: The query selects every column in this domain row shape, and the repository maps numeric values explicitly below.
+      const receiptLines = receiptLineRows.rows as { goods_receipt_id: string; ingredient_id: string; accepted_quantity: NumericRow; damaged_quantity: NumericRow; rejected_quantity: NumericRow; unit: string; note?: string }[];
+
+      // SAFETY: The query selects every column in this domain row shape, and the repository maps numeric values explicitly below.
+      const requestLines = requestLineRows.rows as { stock_request_id: string; ingredient_id: string; requested_quantity: NumericRow; approved_quantity?: NumericRow; shipped_quantity?: NumericRow; received_quantity?: NumericRow; unit: string }[];
+
+      // SAFETY: The query selects every column in this domain row shape, and the repository maps numeric values explicitly below.
+      const countLines = countLineRows.rows as { daily_count_id: string; ingredient_id: string; opening_quantity: NumericRow; received_quantity: NumericRow; theoretical_sold_quantity?: NumericRow; theoretical_sold_status: string; closing_quantity: NumericRow; variance_quantity: NumericRow; unit: string }[];
+
+      return {
+        // SAFETY: Each projection is built only from rows returned by the branch-scoped queries above.
+        purchaseOrders: poRows.rows.map((row) => ({ id: row.id, branchId: row.branch_id, supplierId: row.supplier_id, status: row.status, lines: poLines.filter((line) => line.purchase_order_id === row.id).map((line) => ({ id: line.id, ingredientId: line.ingredient_id, orderedQuantity: Number(line.ordered_quantity), receivedQuantity: Number(line.received_quantity), unit: line.unit })), createdAt: row.created_at, updatedAt: row.updated_at } as PurchaseOrder)),
+        // SAFETY: Each projection is built only from rows returned by the branch-scoped queries above.
+        receipts: receiptRows.rows.map((row) => ({ id: row.id, branchId: row.branch_id, purchaseOrderId: row.purchase_order_id, status: row.status, lines: receiptLines.filter((line) => line.goods_receipt_id === row.id).map((line) => ({ ingredientId: line.ingredient_id, acceptedQuantity: Number(line.accepted_quantity), damagedQuantity: Number(line.damaged_quantity), rejectedQuantity: Number(line.rejected_quantity), unit: line.unit, note: line.note ?? undefined })), confirmedAt: row.confirmed_at ?? undefined, createdAt: row.created_at } as GoodsReceipt)),
+        // SAFETY: Each projection is built only from rows returned by the branch-scoped queries above.
+        stockBalances: balanceRows.rows.map((row) => ({ locationId: row.location_id, locationLabel: row.location_label, locationKind: row.location_kind, ingredientId: row.ingredient_id, quantity: Number(row.quantity), unit: row.unit, updatedAt: row.updated_at } as StockBalance)),
+        // SAFETY: Each projection is built only from rows returned by the branch-scoped queries above.
+        stockRequests: requestRows.rows.map((row) => ({ id: row.id, fromLocationId: row.from_location_id, toLocationId: row.to_location_id, status: row.status, reason: row.reason, lines: requestLines.filter((line) => line.stock_request_id === row.id).map((line) => ({ ingredientId: line.ingredient_id, requestedQuantity: Number(line.requested_quantity), approvedQuantity: line.approved_quantity === undefined ? undefined : Number(line.approved_quantity), shippedQuantity: line.shipped_quantity === undefined ? undefined : Number(line.shipped_quantity), receivedQuantity: line.received_quantity === undefined ? undefined : Number(line.received_quantity), unit: line.unit })), createdAt: row.created_at, updatedAt: row.updated_at } as StockRequest)),
+        // SAFETY: Each projection is built only from rows returned by the branch-scoped queries above.
+        dailyCounts: countRows.rows.map((row) => ({ id: row.id, branchId: row.branch_id, businessDate: row.business_date, status: row.status, submittedAt: row.submitted_at ?? undefined, lines: countLines.filter((line) => line.daily_count_id === row.id).map((line) => ({ ingredientId: line.ingredient_id, openingQuantity: Number(line.opening_quantity), receivedQuantity: Number(line.received_quantity), theoreticalSoldQuantity: line.theoretical_sold_quantity === undefined ? undefined : Number(line.theoretical_sold_quantity), theoreticalSoldStatus: line.theoretical_sold_status, closingQuantity: Number(line.closing_quantity), varianceQuantity: Number(line.variance_quantity), unit: line.unit })), createdAt: row.created_at } as DailyCount)),
+        // SAFETY: Each projection is built only from rows returned by the branch-scoped queries above.
+        wastage: wastageRows.rows.map((row) => ({ id: row.id, branchId: row.branch_id, ingredientId: row.ingredient_id, quantity: Number(row.quantity), unit: row.unit, reason: row.reason, standardPrice: Number(row.standard_price), value: Number(row.value), status: row.status, note: row.note ?? undefined, createdAt: row.created_at } as WastageRecord)),
+        // SAFETY: Each projection is built only from rows returned by the branch-scoped queries above.
+        ledger: ledgerRows.rows.map((row) => ({ id: row.id, locationId: row.location_id, ingredientId: row.ingredient_id, quantityDelta: Number(row.quantity_delta), unit: row.unit, eventType: row.event_type, sourceType: row.source_type, sourceId: row.source_id, createdAt: row.created_at } as StockLedgerEntry))
+      };
+    },
+    async createPurchaseOrder(actor, input: CreatePurchaseOrderInput, requestId, idempotencyKey) {
+      write(actor); assertBranchScope(actor, input.branchId); assert(input.lines.length > 0, 'VALIDATION_ERROR', 'Purchase order needs at least one line'); const rid = restaurantId(actor);
+
+      return transaction(async (client) => {
+        const old = await replay<PurchaseOrder>(client, actor, idempotencyKey, 'PURCHASE_ORDER_CREATE');
+
+ if (old) return old;
+        const supplier = await client.query('SELECT id FROM suppliers WHERE id = $1 AND restaurant_id = $2 AND status = \'ACTIVE\'', [input.supplierId, rid]); assert(supplier.rowCount, 'NOT_FOUND', 'Supplier not found', 404);
+        const id = `po_${randomUUID().slice(0, 8)}`; await client.query('INSERT INTO purchase_orders (id, restaurant_id, branch_id, supplier_id) VALUES ($1, $2, $3, $4)', [id, rid, input.branchId, input.supplierId]); const lines: PurchaseOrder['lines'] = [];
+
+        for (const inputLine of input.lines) { assert(inputLine.orderedQuantity > 0, 'VALIDATION_ERROR', 'Ordered quantity must be greater than zero'); const ingredient = await client.query('SELECT id FROM ingredients WHERE id = $1 AND restaurant_id = $2 AND status = \'ACTIVE\'', [inputLine.ingredientId, rid]); assert(ingredient.rowCount, 'NOT_FOUND', 'Ingredient not found', 404); const lineId = `po_line_${randomUUID().slice(0, 8)}`; await client.query('INSERT INTO purchase_order_lines (id, purchase_order_id, ingredient_id, ordered_quantity, unit) VALUES ($1, $2, $3, $4, $5)', [lineId, id, inputLine.ingredientId, inputLine.orderedQuantity, inputLine.unit]); lines.push({ id: lineId, ingredientId: inputLine.ingredientId, orderedQuantity: inputLine.orderedQuantity, receivedQuantity: 0, unit: inputLine.unit }); }
+
+        const now = new Date().toISOString(); const response: PurchaseOrder = { id, branchId: input.branchId, supplierId: input.supplierId, status: 'DRAFT', lines, createdAt: now, updatedAt: now }; await audit(client, actor, requestId, 'PURCHASE_ORDER_CREATED', 'PURCHASE_ORDER', id, input.branchId); await remember(client, actor, idempotencyKey, 'PURCHASE_ORDER_CREATE', response);
+
+ return response;
+      });
+    },
+    async commandPurchaseOrder(actor, purchaseOrderId, command, requestId, idempotencyKey) {
+      write(actor);
+
+ return transaction(async (client) => { const old = await replay<PurchaseOrder>(client, actor, idempotencyKey, `PURCHASE_ORDER_${command.toUpperCase()}`);
+
+ if (old) return old; const po = await client.query<{ id: string; branch_id: string; supplier_id: string; status: PurchaseOrder['status']; created_at: string; updated_at: string }>('SELECT id, branch_id, supplier_id, status, created_at, updated_at FROM purchase_orders WHERE id = $1 FOR UPDATE', [purchaseOrderId]); assert(po.rowCount, 'NOT_FOUND', 'Purchase order not found', 404); assertBranchScope(actor, po.rows[0].branch_id); const nextStatus: PurchaseOrder['status'] = command === 'send' ? 'SENT' : 'CANCELLED'; assert(command === 'send' ? po.rows[0].status === 'DRAFT' : (po.rows[0].status === 'DRAFT' || po.rows[0].status === 'SENT'), 'CONFLICT', 'Purchase order cannot transition from this state', 409); await client.query('UPDATE purchase_orders SET status = $2, updated_at = now() WHERE id = $1', [purchaseOrderId, nextStatus]); const lines = await client.query('SELECT id, ingredient_id, ordered_quantity, received_quantity, unit FROM purchase_order_lines WHERE purchase_order_id = $1', [purchaseOrderId]); const response: PurchaseOrder = { id: po.rows[0].id, branchId: po.rows[0].branch_id, supplierId: po.rows[0].supplier_id, status: nextStatus, lines: lines.rows.map((line) => ({ id: line.id, ingredientId: line.ingredient_id, orderedQuantity: Number(line.ordered_quantity), receivedQuantity: Number(line.received_quantity), unit: line.unit })), createdAt: po.rows[0].created_at, updatedAt: new Date().toISOString() }; await audit(client, actor, requestId, `PURCHASE_ORDER_${command.toUpperCase()}`, 'PURCHASE_ORDER', purchaseOrderId, po.rows[0].branch_id); await remember(client, actor, idempotencyKey, `PURCHASE_ORDER_${command.toUpperCase()}`, response);
+
+ return response; });
+    },
+    async confirmGoodsReceipt(actor, input: ConfirmGoodsReceiptInput, requestId, idempotencyKey) {
+      write(actor); assertBranchScope(actor, input.branchId); assert(input.lines.length > 0, 'VALIDATION_ERROR', 'Receipt needs at least one line');
+
+      return transaction(async (client) => {
+        const old = await replay<GoodsReceipt>(client, actor, idempotencyKey, 'GOODS_RECEIPT_CONFIRM');
+
+ if (old) return old;
+        const po = await client.query<{ id: string; status: PurchaseOrder['status']; branch_id: string }>('SELECT id, status, branch_id FROM purchase_orders WHERE id = $1 AND branch_id = $2 FOR UPDATE', [input.purchaseOrderId, input.branchId]); assert(po.rowCount, 'NOT_FOUND', 'Purchase order not found', 404); assert(po.rows[0].status !== 'CANCELLED' && po.rows[0].status !== 'RECEIVED', 'CONFLICT', 'Purchase order cannot receive more goods', 409);
+        const warehouse = await client.query<{ id: string }>('SELECT id FROM stock_locations WHERE kind = \'WAREHOUSE\' AND status = \'ACTIVE\' ORDER BY id LIMIT 1 FOR UPDATE'); assert(warehouse.rowCount, 'CONFLICT', 'Warehouse location is not configured', 409); const receiptId = `receipt_${randomUUID().slice(0, 8)}`; await client.query('INSERT INTO goods_receipts (id, branch_id, purchase_order_id, status, confirmed_at) VALUES ($1, $2, $3, \'CONFIRMED\', now())', [receiptId, input.branchId, input.purchaseOrderId]);
+
+        for (const line of input.lines) { const total = line.acceptedQuantity + line.damagedQuantity + line.rejectedQuantity; assert(total > 0, 'VALIDATION_ERROR', 'Receipt quantity must be greater than zero'); const orderLine = await client.query<{ id: string; ordered_quantity: NumericRow; received_quantity: NumericRow }>('SELECT id, ordered_quantity, received_quantity FROM purchase_order_lines WHERE purchase_order_id = $1 AND ingredient_id = $2 FOR UPDATE', [input.purchaseOrderId, line.ingredientId]); assert(orderLine.rowCount, 'VALIDATION_ERROR', 'Receipt line is not on the purchase order'); assert(Number(orderLine.rows[0].received_quantity) + total <= Number(orderLine.rows[0].ordered_quantity), 'CONFLICT', 'Receipt exceeds ordered quantity', 409); await client.query('INSERT INTO goods_receipt_lines (goods_receipt_id, ingredient_id, accepted_quantity, damaged_quantity, rejected_quantity, unit, note) VALUES ($1, $2, $3, $4, $5, $6, $7)', [receiptId, line.ingredientId, line.acceptedQuantity, line.damagedQuantity, line.rejectedQuantity, line.unit, line.note ?? null]); await client.query('UPDATE purchase_order_lines SET received_quantity = received_quantity + $3 WHERE id = $1 AND purchase_order_id = $2', [orderLine.rows[0].id, input.purchaseOrderId, total]);
+
+ if (line.acceptedQuantity > 0) { await client.query('INSERT INTO stock_balances (location_id, ingredient_id, quantity, unit) VALUES ($1, $2, $3, $4) ON CONFLICT (location_id, ingredient_id) DO UPDATE SET quantity = stock_balances.quantity + EXCLUDED.quantity, updated_at = now()', [warehouse.rows[0].id, line.ingredientId, line.acceptedQuantity, line.unit]); await client.query('INSERT INTO inventory_ledger (id, location_id, ingredient_id, quantity_delta, unit, event_type, source_type, source_id, idempotency_key, actor_id) VALUES ($1, $2, $3, $4, $5, \'GOODS_RECEIPT_CONFIRMED\', \'GOODS_RECEIPT\', $6, $7, $8)', [`ledger_${randomUUID().slice(0, 8)}`, warehouse.rows[0].id, line.ingredientId, line.acceptedQuantity, line.unit, receiptId, `${idempotencyKey}:${line.ingredientId}`, actor.id]); } }
+
+        const refreshed = await client.query<{ ordered_quantity: NumericRow; received_quantity: NumericRow }>('SELECT ordered_quantity, received_quantity FROM purchase_order_lines WHERE purchase_order_id = $1', [input.purchaseOrderId]); const status: PurchaseOrder['status'] = refreshed.rows.every((line) => Number(line.received_quantity) >= Number(line.ordered_quantity)) ? 'RECEIVED' : 'PARTIALLY_RECEIVED'; await client.query('UPDATE purchase_orders SET status = $2, updated_at = now() WHERE id = $1', [input.purchaseOrderId, status]); const response: GoodsReceipt = { id: receiptId, branchId: input.branchId, purchaseOrderId: input.purchaseOrderId, status: 'CONFIRMED', lines: input.lines, confirmedAt: new Date().toISOString(), createdAt: new Date().toISOString() }; await audit(client, actor, requestId, 'GOODS_RECEIPT_CONFIRMED', 'GOODS_RECEIPT', receiptId, input.branchId); await remember(client, actor, idempotencyKey, 'GOODS_RECEIPT_CONFIRM', response);
+
+ return response;
+      });
+    },
+    async createStockRequest(actor, input: CreateStockRequestInput, requestId, idempotencyKey) {
+      write(actor); assert(input.lines.length > 0 && input.reason.trim().length >= 3, 'VALIDATION_ERROR', 'Stock request needs a reason and line');
+
+      return transaction(async (client) => { const old = await replay<StockRequest>(client, actor, idempotencyKey, 'STOCK_REQUEST_CREATE');
+
+ if (old) return old; const locations = await client.query<{ id: string; branch_id?: string }>('SELECT id, branch_id FROM stock_locations WHERE id = ANY($1::text[]) AND status = \'ACTIVE\'', [[input.fromLocationId, input.toLocationId]]); assert(locations.rowCount === 2, 'NOT_FOUND', 'Stock location not found', 404); const destination = locations.rows.find((row) => row.id === input.toLocationId); assert(destination?.branch_id, 'VALIDATION_ERROR', 'Destination must be a branch location'); assertBranchScope(actor, destination.branch_id); const id = `request_${randomUUID().slice(0, 8)}`; await client.query('INSERT INTO stock_requests (id, from_location_id, to_location_id, reason) VALUES ($1, $2, $3, $4)', [id, input.fromLocationId, input.toLocationId, input.reason.trim()]); const lines: StockRequest['lines'] = [];
+
+ for (const line of input.lines) { assert(line.requestedQuantity > 0, 'VALIDATION_ERROR', 'Requested quantity must be greater than zero'); await client.query('INSERT INTO stock_request_lines (stock_request_id, ingredient_id, requested_quantity, unit) VALUES ($1, $2, $3, $4)', [id, line.ingredientId, line.requestedQuantity, line.unit]); lines.push({ ingredientId: line.ingredientId, requestedQuantity: line.requestedQuantity, unit: line.unit }); }
+
+ const now = new Date().toISOString(); const response: StockRequest = { id, fromLocationId: input.fromLocationId, toLocationId: input.toLocationId, status: 'REQUESTED', lines, reason: input.reason.trim(), createdAt: now, updatedAt: now }; await audit(client, actor, requestId, 'STOCK_REQUEST_CREATED', 'STOCK_REQUEST', id, destination.branch_id); await remember(client, actor, idempotencyKey, 'STOCK_REQUEST_CREATE', response);
+
+ return response; });
+    },
+    async commandStockRequest(actor, requestIdId, command, input) {
+      write(actor);
+
+      return transaction(async (client) => { const old = await replay<StockRequest>(client, actor, input.idempotencyKey, `STOCK_REQUEST_${command.toUpperCase()}`);
+
+ if (old) return old; const result = await client.query<{ id: string; from_location_id: string; to_location_id: string; status: StockRequest['status']; reason: string; created_at: string; updated_at: string }>('SELECT sr.id, sr.from_location_id, sr.to_location_id, sr.status, sr.reason, sr.created_at, sr.updated_at FROM stock_requests sr JOIN stock_locations sl ON sl.id = sr.to_location_id WHERE sr.id = $1 FOR UPDATE', [requestIdId]); assert(result.rowCount, 'NOT_FOUND', 'Stock request not found', 404); const request = result.rows[0]; const destination = await client.query<{ branch_id: string }>('SELECT branch_id FROM stock_locations WHERE id = $1', [request.to_location_id]); assert(destination.rowCount && destination.rows[0].branch_id, 'VALIDATION_ERROR', 'Destination must be a branch location'); assertBranchScope(actor, destination.rows[0].branch_id); const linesResult = await client.query<{ ingredient_id: string; requested_quantity: NumericRow; approved_quantity?: NumericRow; shipped_quantity?: NumericRow; received_quantity?: NumericRow; unit: string }>('SELECT ingredient_id, requested_quantity, approved_quantity, shipped_quantity, received_quantity, unit FROM stock_request_lines WHERE stock_request_id = $1 FOR UPDATE', [request.id]);
+
+ if (command === 'approve') { assert(request.status === 'REQUESTED', 'CONFLICT', 'Only requested stock transfers can be approved', 409); await client.query('UPDATE stock_requests SET status = \'APPROVED\', updated_at = now() WHERE id = $1', [request.id]); await client.query('UPDATE stock_request_lines SET approved_quantity = requested_quantity WHERE stock_request_id = $1', [request.id]); }
+
+ if (command === 'reject') { assert(request.status === 'REQUESTED', 'CONFLICT', 'Only requested stock transfers can be rejected', 409); assert(input.reason?.trim(), 'VALIDATION_ERROR', 'Rejection reason is required'); await client.query('UPDATE stock_requests SET status = \'REJECTED\', updated_at = now(), reason = reason || $2 WHERE id = $1', [request.id, ` · Rejected: ${input.reason.trim()}`]); }
+
+ if (command === 'ship') { assert(request.status === 'APPROVED', 'CONFLICT', 'Only approved stock transfers can ship', 409);
+
+ for (const line of linesResult.rows) { const qty = Number(line.approved_quantity ?? line.requested_quantity); const balance = await client.query<{ quantity: NumericRow }>('SELECT quantity FROM stock_balances WHERE location_id = $1 AND ingredient_id = $2 FOR UPDATE', [request.from_location_id, line.ingredient_id]); assert(balance.rowCount && Number(balance.rows[0].quantity) >= qty, 'CONFLICT', 'Insufficient available stock', 409); await client.query('UPDATE stock_balances SET quantity = quantity - $3, updated_at = now() WHERE location_id = $1 AND ingredient_id = $2', [request.from_location_id, line.ingredient_id, qty]); await client.query('INSERT INTO inventory_ledger (id, location_id, ingredient_id, quantity_delta, unit, event_type, source_type, source_id, idempotency_key, actor_id) VALUES ($1, $2, $3, $4, $5, \'STOCK_SHIPPED\', \'STOCK_REQUEST\', $6, $7, $8)', [`ledger_${randomUUID().slice(0, 8)}`, request.from_location_id, line.ingredient_id, -qty, line.unit, request.id, `${input.idempotencyKey}:${line.ingredient_id}`, actor.id]); }
+
+ await client.query('UPDATE stock_request_lines SET shipped_quantity = COALESCE(approved_quantity, requested_quantity) WHERE stock_request_id = $1', [request.id]); await client.query('UPDATE stock_requests SET status = \'IN_TRANSIT\', updated_at = now() WHERE id = $1', [request.id]); }
+
+ if (command === 'accept') { assert(request.status === 'IN_TRANSIT', 'CONFLICT', 'Only in-transit stock transfers can be accepted', 409);
+
+ for (const line of linesResult.rows) { const qty = Number(line.shipped_quantity ?? 0); await client.query('INSERT INTO stock_balances (location_id, ingredient_id, quantity, unit) VALUES ($1, $2, $3, $4) ON CONFLICT (location_id, ingredient_id) DO UPDATE SET quantity = stock_balances.quantity + EXCLUDED.quantity, updated_at = now()', [request.to_location_id, line.ingredient_id, qty, line.unit]); await client.query('INSERT INTO inventory_ledger (id, location_id, ingredient_id, quantity_delta, unit, event_type, source_type, source_id, idempotency_key, actor_id) VALUES ($1, $2, $3, $4, $5, \'STOCK_RECEIVED\', \'STOCK_REQUEST\', $6, $7, $8)', [`ledger_${randomUUID().slice(0, 8)}`, request.to_location_id, line.ingredient_id, qty, line.unit, request.id, `${input.idempotencyKey}:${line.ingredient_id}`, actor.id]); }
+
+ await client.query('UPDATE stock_request_lines SET received_quantity = shipped_quantity WHERE stock_request_id = $1', [request.id]); await client.query('UPDATE stock_requests SET status = \'CLOSED\', updated_at = now() WHERE id = $1', [request.id]); }
+
+ const updated = await client.query('SELECT id, from_location_id, to_location_id, status, reason, created_at, updated_at FROM stock_requests WHERE id = $1', [request.id]); const updatedLines = await client.query('SELECT ingredient_id, requested_quantity, approved_quantity, shipped_quantity, received_quantity, unit FROM stock_request_lines WHERE stock_request_id = $1', [request.id]); const response: StockRequest = { id: updated.rows[0].id, fromLocationId: updated.rows[0].from_location_id, toLocationId: updated.rows[0].to_location_id, status: updated.rows[0].status, reason: updated.rows[0].reason, lines: updatedLines.rows.map((line) => ({ ingredientId: line.ingredient_id, requestedQuantity: Number(line.requested_quantity), approvedQuantity: line.approved_quantity === null ? undefined : Number(line.approved_quantity), shippedQuantity: line.shipped_quantity === null ? undefined : Number(line.shipped_quantity), receivedQuantity: line.received_quantity === null ? undefined : Number(line.received_quantity), unit: line.unit })), createdAt: updated.rows[0].created_at, updatedAt: updated.rows[0].updated_at }; await audit(client, actor, requestIdId, `STOCK_REQUEST_${command.toUpperCase()}`, 'STOCK_REQUEST', request.id, destination.rows[0].branch_id); await remember(client, actor, input.idempotencyKey, `STOCK_REQUEST_${command.toUpperCase()}`, response);
+
+ return response; });
+    },
+    async createDailyCount(actor, input: CreateDailyCountInput, requestId, idempotencyKey) {
+      write(actor); assertBranchScope(actor, input.branchId);
+
+ return transaction(async (client) => { const old = await replay<DailyCount>(client, actor, idempotencyKey, 'DAILY_COUNT_CREATE');
+
+ if (old) return old; const id = `count_${randomUUID().slice(0, 8)}`; await client.query('INSERT INTO daily_counts (id, branch_id, business_date) VALUES ($1, $2, $3)', [id, input.branchId, input.businessDate]); const lines: DailyCount['lines'] = [];
+
+ for (const line of input.lines) { const status = line.theoreticalSoldQuantity === undefined ? 'INCOMPLETE_THEORY' : 'AVAILABLE'; const variance = status === 'AVAILABLE' ? line.closingQuantity - (line.openingQuantity + line.receivedQuantity - line.theoreticalSoldQuantity!) : 0; await client.query('INSERT INTO daily_count_lines (daily_count_id, ingredient_id, opening_quantity, received_quantity, theoretical_sold_quantity, theoretical_sold_status, closing_quantity, variance_quantity, unit) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)', [id, line.ingredientId, line.openingQuantity, line.receivedQuantity, line.theoreticalSoldQuantity ?? null, status, line.closingQuantity, variance, line.unit]); lines.push({ ...line, varianceQuantity: variance, theoreticalSoldStatus: status }); }
+
+ const response: DailyCount = { id, branchId: input.branchId, businessDate: input.businessDate, status: 'DRAFT', lines, createdAt: new Date().toISOString() }; await audit(client, actor, requestId, 'DAILY_COUNT_CREATED', 'DAILY_COUNT', id, input.branchId); await remember(client, actor, idempotencyKey, 'DAILY_COUNT_CREATE', response);
+
+ return response; });
+    },
+    async submitDailyCount(actor, countId, requestId, idempotencyKey) { write(actor);
+
+ return transaction(async (client) => { const old = await replay<DailyCount>(client, actor, idempotencyKey, 'DAILY_COUNT_SUBMIT');
+
+ if (old) return old; const count = await client.query<{ id: string; branch_id: string; business_date: string; status: DailyCount['status']; created_at: string; submitted_at?: string }>('SELECT id, branch_id, business_date, status, created_at, submitted_at FROM daily_counts WHERE id = $1 FOR UPDATE', [countId]); assert(count.rowCount, 'NOT_FOUND', 'Daily count not found', 404); assertBranchScope(actor, count.rows[0].branch_id); assert(count.rows[0].status === 'DRAFT' || count.rows[0].status === 'REJECTED', 'CONFLICT', 'Daily count cannot be submitted in this state', 409); await client.query('UPDATE daily_counts SET status = \'SUBMITTED\', submitted_at = now() WHERE id = $1', [countId]); const lines = await client.query('SELECT ingredient_id, opening_quantity, received_quantity, theoretical_sold_quantity, theoretical_sold_status, closing_quantity, variance_quantity, unit FROM daily_count_lines WHERE daily_count_id = $1', [countId]);
+
+ // SAFETY: The row is selected by primary key, branch scope is checked, and the mapped fields match DailyCount's persisted contract.
+ const response = { id: countId, branchId: count.rows[0].branch_id, businessDate: count.rows[0].business_date, status: 'SUBMITTED', lines: lines.rows.map((line) => ({ ingredientId: line.ingredient_id, openingQuantity: Number(line.opening_quantity), receivedQuantity: Number(line.received_quantity), theoreticalSoldQuantity: line.theoretical_sold_quantity === null ? undefined : Number(line.theoretical_sold_quantity), theoreticalSoldStatus: line.theoretical_sold_status, closingQuantity: Number(line.closing_quantity), varianceQuantity: Number(line.variance_quantity), unit: line.unit })), submittedAt: new Date().toISOString(), createdAt: count.rows[0].created_at } as DailyCount; await audit(client, actor, requestId, 'DAILY_COUNT_SUBMITTED', 'DAILY_COUNT', countId, count.rows[0].branch_id); await remember(client, actor, idempotencyKey, 'DAILY_COUNT_SUBMIT', response);
+
+ return response; }); },
+    async createWastage(actor, input: CreateWastageInput, requestId, idempotencyKey) { write(actor); assertBranchScope(actor, input.branchId); assert(input.quantity > 0 && input.reason.trim().length >= 3, 'VALIDATION_ERROR', 'Wastage quantity and reason are required'); const rid = restaurantId(actor);
+
+ return transaction(async (client) => { const old = await replay<WastageRecord>(client, actor, idempotencyKey, 'WASTAGE_CREATE');
+
+ if (old) return old; const ingredient = await client.query<{ standard_cost: NumericRow }>('SELECT standard_cost FROM ingredients WHERE id = $1 AND restaurant_id = $2 AND status = \'ACTIVE\'', [input.ingredientId, rid]); assert(ingredient.rowCount, 'NOT_FOUND', 'Ingredient not found', 404); const id = `wastage_${randomUUID().slice(0, 8)}`; const standardPrice = Number(ingredient.rows[0].standard_cost); const value = standardPrice * input.quantity; await client.query('INSERT INTO wastage_records (id, branch_id, ingredient_id, quantity, unit, reason, standard_price, value, note) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)', [id, input.branchId, input.ingredientId, input.quantity, input.unit, input.reason.trim(), standardPrice, value, input.note?.trim() ?? null]); const response: WastageRecord = { id, branchId: input.branchId, ingredientId: input.ingredientId, quantity: input.quantity, unit: input.unit, reason: input.reason.trim(), standardPrice, value, status: 'DRAFT', note: input.note?.trim(), createdAt: new Date().toISOString() }; await audit(client, actor, requestId, 'WASTAGE_CREATED', 'WASTAGE', id, input.branchId); await remember(client, actor, idempotencyKey, 'WASTAGE_CREATE', response);
+
+ return response; }); },
+    async submitWastage(actor, wastageId, requestId, idempotencyKey) { write(actor);
+
+ return transaction(async (client) => { const old = await replay<WastageRecord>(client, actor, idempotencyKey, 'WASTAGE_SUBMIT');
+
+ if (old) return old; const row = await client.query<{ id: string; branch_id: string; ingredient_id: string; quantity: NumericRow; unit: string; reason: string; standard_price: NumericRow; value: NumericRow; status: WastageRecord['status']; note?: string; created_at: string }>('SELECT id, branch_id, ingredient_id, quantity, unit, reason, standard_price, value, status, note, created_at FROM wastage_records WHERE id = $1 FOR UPDATE', [wastageId]); assert(row.rowCount, 'NOT_FOUND', 'Wastage record not found', 404); assertBranchScope(actor, row.rows[0].branch_id); assert(row.rows[0].status === 'DRAFT' || row.rows[0].status === 'REJECTED', 'CONFLICT', 'Wastage cannot be submitted in this state', 409); await client.query('UPDATE wastage_records SET status = \'SUBMITTED\' WHERE id = $1', [wastageId]);
+
+ // SAFETY: The row is selected by primary key, branch scope is checked, and the mapped fields match WastageRecord's persisted contract.
+ const value = { id: row.rows[0].id, branchId: row.rows[0].branch_id, ingredientId: row.rows[0].ingredient_id, quantity: Number(row.rows[0].quantity), unit: row.rows[0].unit, reason: row.rows[0].reason, standardPrice: Number(row.rows[0].standard_price), value: Number(row.rows[0].value), status: 'SUBMITTED', note: row.rows[0].note ?? undefined, createdAt: row.rows[0].created_at } as WastageRecord; await audit(client, actor, requestId, 'WASTAGE_SUBMITTED', 'WASTAGE', wastageId, row.rows[0].branch_id); await remember(client, actor, idempotencyKey, 'WASTAGE_SUBMIT', value);
+
+ return value; }); }
   };
 }

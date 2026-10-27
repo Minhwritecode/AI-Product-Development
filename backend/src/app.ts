@@ -6,7 +6,7 @@ import { AppError, assert, assertPermission } from './platform/errors.js';
 import { createMemoryRepository } from './platform/memory-repository.js';
 import type { Actor, PlatformRepository } from './platform/types.js';
 import { createMemoryOperationsRepository } from './operations/memory-repository.js';
-import type { CreateAssignmentInput, CreateCategoryInput, CreateIngredientInput, CreateMenuItemInput, CreateMenuVersionInput, CreateModifierGroupInput, CreateRecipeInput, CreateShiftInput, CreateStaffInput, CreateStationAssignmentInput, CreateSupplierInput, CreateTaskInput, OperationsRepository, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, TaskCommandInput } from './operations/types.js';
+import type { CreateAssignmentInput, CreateCategoryInput, CreateDailyCountInput, CreateIngredientInput, CreateMenuItemInput, CreateMenuVersionInput, CreateModifierGroupInput, CreatePurchaseOrderInput, CreateRecipeInput, CreateShiftInput, CreateStaffInput, CreateStationAssignmentInput, CreateStockRequestInput, CreateSupplierInput, CreateTaskInput, CreateWastageInput, OperationsRepository, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, TaskCommandInput } from './operations/types.js';
 
 type JwtPayload = { sub: string; sid: string };
 
@@ -57,6 +57,16 @@ const allergensSchema = { body: { type: 'object', required: ['allergenCodes'], p
 
 const availabilitySchema = { body: { type: 'object', required: ['status'], properties: { status: { type: 'string', enum: ['PUBLISHED', 'UNAVAILABLE', 'INACTIVE'] }, reason: { type: 'string', maxLength: 500 } }, additionalProperties: false } } as const;
 
+const purchaseOrderSchema = { body: { type: 'object', required: ['branchId', 'supplierId', 'lines'], properties: { branchId: { type: 'string' }, supplierId: { type: 'string' }, lines: { type: 'array', minItems: 1, items: { type: 'object', required: ['ingredientId', 'orderedQuantity', 'unit'], properties: { ingredientId: { type: 'string' }, orderedQuantity: { type: 'number', exclusiveMinimum: 0 }, unit: { type: 'string' } }, additionalProperties: false } } }, additionalProperties: false } } as const;
+
+const goodsReceiptSchema = { body: { type: 'object', required: ['branchId', 'purchaseOrderId', 'lines'], properties: { branchId: { type: 'string' }, purchaseOrderId: { type: 'string' }, lines: { type: 'array', minItems: 1, items: { type: 'object', required: ['ingredientId', 'acceptedQuantity', 'damagedQuantity', 'rejectedQuantity', 'unit'], properties: { ingredientId: { type: 'string' }, acceptedQuantity: { type: 'number', minimum: 0 }, damagedQuantity: { type: 'number', minimum: 0 }, rejectedQuantity: { type: 'number', minimum: 0 }, unit: { type: 'string' }, note: { type: 'string', maxLength: 500 } }, additionalProperties: false } } }, additionalProperties: false } } as const;
+
+const stockRequestSchema = { body: { type: 'object', required: ['fromLocationId', 'toLocationId', 'reason', 'lines'], properties: { fromLocationId: { type: 'string' }, toLocationId: { type: 'string' }, reason: { type: 'string', minLength: 3, maxLength: 500 }, lines: { type: 'array', minItems: 1, items: { type: 'object', required: ['ingredientId', 'requestedQuantity', 'unit'], properties: { ingredientId: { type: 'string' }, requestedQuantity: { type: 'number', exclusiveMinimum: 0 }, unit: { type: 'string' } }, additionalProperties: false } } }, additionalProperties: false } } as const;
+
+const dailyCountSchema = { body: { type: 'object', required: ['branchId', 'businessDate', 'lines'], properties: { branchId: { type: 'string' }, businessDate: { type: 'string', format: 'date' }, lines: { type: 'array', minItems: 1, items: { type: 'object', required: ['ingredientId', 'openingQuantity', 'receivedQuantity', 'closingQuantity', 'unit'], properties: { ingredientId: { type: 'string' }, openingQuantity: { type: 'number', minimum: 0 }, receivedQuantity: { type: 'number', minimum: 0 }, theoreticalSoldQuantity: { type: 'number', minimum: 0 }, closingQuantity: { type: 'number', minimum: 0 }, unit: { type: 'string' } }, additionalProperties: false } } }, additionalProperties: false } } as const;
+
+const wastageSchema = { body: { type: 'object', required: ['branchId', 'ingredientId', 'quantity', 'unit', 'reason'], properties: { branchId: { type: 'string' }, ingredientId: { type: 'string' }, quantity: { type: 'number', exclusiveMinimum: 0 }, unit: { type: 'string' }, reason: { type: 'string', minLength: 3, maxLength: 200 }, note: { type: 'string', maxLength: 500 } }, additionalProperties: false } } as const;
+
 declare module 'fastify' {
   interface FastifyRequest {
     actor?: Actor;
@@ -71,6 +81,14 @@ function envelope<T>(data: T, requestId: string) {
 function readBody<T>(request: FastifyRequest): T {
   // SAFETY: Each command route declares a Fastify JSON schema before this boundary; an absent body is treated as an empty invalid input.
   return (request.body ?? {}) as T;
+}
+
+function readIdempotencyKey(request: FastifyRequest): string {
+  const header = request.headers['idempotency-key'];
+  const value = Array.isArray(header) ? header[0] : header;
+  assert(value !== undefined && value.trim().length >= 8, 'VALIDATION_ERROR', 'Idempotency-Key header is required for this command');
+
+  return value.trim();
 }
 
 export function buildApp(options: AppOptions = {}): FastifyInstance {
@@ -206,6 +224,21 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   app.post<{ Params: { menuItemId: string }; Body: SetMenuItemAvailabilityInput }>('/api/v1/menu/items/:menuItemId/availability', { preHandler: authenticate, schema: availabilitySchema }, async (request) => envelope(await operationsRepository.setMenuItemAvailability(actor(request), request.params.menuItemId, readBody<SetMenuItemAvailabilityInput>(request), request.id), request.id));
   app.post<{ Body: CreateRecipeInput }>('/api/v1/recipes', { preHandler: authenticate, schema: recipeSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createRecipe(actor(request), readBody<CreateRecipeInput>(request), request.id), request.id)));
   app.post<{ Params: { recipeId: string } }>('/api/v1/recipes/:recipeId/publish', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.publishRecipe(actor(request), request.params.recipeId, request.id), request.id));
+
+  app.get<{ Querystring: { branchId: string } }>('/api/v1/boh/workspace', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.getBohWorkspace(actor(request), request.query.branchId), request.id));
+  app.post<{ Body: CreatePurchaseOrderInput }>('/api/v1/purchase-orders', { preHandler: authenticate, schema: purchaseOrderSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createPurchaseOrder(actor(request), readBody<CreatePurchaseOrderInput>(request), request.id, readIdempotencyKey(request)), request.id)));
+  app.post<{ Params: { purchaseOrderId: string; command: 'send' | 'cancel' } }>('/api/v1/purchase-orders/:purchaseOrderId/:command', { preHandler: authenticate }, async (request) => { assert(['send', 'cancel'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported purchase order command');
+
+ return envelope(await operationsRepository.commandPurchaseOrder(actor(request), request.params.purchaseOrderId, request.params.command, request.id, readIdempotencyKey(request)), request.id); });
+  app.post<{ Body: import('./operations/types.js').ConfirmGoodsReceiptInput }>('/api/v1/goods-receipts/confirm', { preHandler: authenticate, schema: goodsReceiptSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.confirmGoodsReceipt(actor(request), readBody<import('./operations/types.js').ConfirmGoodsReceiptInput>(request), request.id, readIdempotencyKey(request)), request.id)));
+  app.post<{ Body: CreateStockRequestInput }>('/api/v1/stock-requests', { preHandler: authenticate, schema: stockRequestSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createStockRequest(actor(request), readBody<CreateStockRequestInput>(request), request.id, readIdempotencyKey(request)), request.id)));
+  app.post<{ Params: { requestId: string; command: 'approve' | 'reject' | 'ship' | 'accept' }; Body: { reason?: string } }>('/api/v1/stock-requests/:requestId/:command', { preHandler: authenticate }, async (request) => { assert(['approve', 'reject', 'ship', 'accept'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported stock request command'); const body = readBody<{ reason?: string }>(request);
+
+ return envelope(await operationsRepository.commandStockRequest(actor(request), request.params.requestId, request.params.command, { reason: body.reason ?? '', idempotencyKey: readIdempotencyKey(request) }), request.id); });
+  app.post<{ Body: CreateDailyCountInput }>('/api/v1/daily-counts', { preHandler: authenticate, schema: dailyCountSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createDailyCount(actor(request), readBody<CreateDailyCountInput>(request), request.id, readIdempotencyKey(request)), request.id)));
+  app.post<{ Params: { countId: string } }>('/api/v1/daily-counts/:countId/submit', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.submitDailyCount(actor(request), request.params.countId, request.id, readIdempotencyKey(request)), request.id));
+  app.post<{ Body: CreateWastageInput }>('/api/v1/wastage', { preHandler: authenticate, schema: wastageSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createWastage(actor(request), readBody<CreateWastageInput>(request), request.id, readIdempotencyKey(request)), request.id)));
+  app.post<{ Params: { wastageId: string } }>('/api/v1/wastage/:wastageId/submit', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.submitWastage(actor(request), request.params.wastageId, request.id, readIdempotencyKey(request)), request.id));
 
   return app;
 }
