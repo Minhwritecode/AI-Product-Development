@@ -126,6 +126,40 @@ export type RecipeVersion = { id: string; menuItemId: string; version: number; s
 
 export type MasterDataOverview = { ingredients: Ingredient[]; suppliers: Supplier[]; categories: MenuCategory[]; menuItems: MenuItem[]; menuVersions: MenuVersion[]; modifierGroups: ModifierGroup[]; recipes: RecipeVersion[]; units: UnitDefinition[]; allergens: Allergen[] };
 
+export type PurchaseOrderStatus = 'DRAFT' | 'SENT' | 'PARTIALLY_RECEIVED' | 'RECEIVED' | 'CANCELLED';
+
+export type GoodsReceiptStatus = 'DRAFT' | 'CONFIRMED' | 'CANCELLED';
+
+export type StockRequestStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'IN_TRANSIT' | 'RECEIVED' | 'CLOSED';
+
+export type CountStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'LOCKED';
+
+export type WastageStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'LOCKED';
+
+export type PurchaseOrderLine = { id: string; ingredientId: string; orderedQuantity: number; receivedQuantity: number; unit: string };
+
+export type PurchaseOrder = { id: string; branchId: string; supplierId: string; status: PurchaseOrderStatus; lines: PurchaseOrderLine[]; createdAt: string; updatedAt: string };
+
+export type GoodsReceiptLine = { ingredientId: string; acceptedQuantity: number; damagedQuantity: number; rejectedQuantity: number; unit: string; note?: string };
+
+export type GoodsReceipt = { id: string; branchId: string; purchaseOrderId: string; status: GoodsReceiptStatus; lines: GoodsReceiptLine[]; confirmedAt?: string; createdAt: string };
+
+export type StockBalance = { locationId: string; locationLabel: string; locationKind: 'WAREHOUSE' | 'BRANCH'; ingredientId: string; quantity: number; unit: string; updatedAt: string };
+
+export type StockLedgerEntry = { id: string; locationId: string; ingredientId: string; quantityDelta: number; unit: string; eventType: string; sourceType: string; sourceId: string; createdAt: string };
+
+export type StockRequestLine = { ingredientId: string; requestedQuantity: number; approvedQuantity?: number; shippedQuantity?: number; receivedQuantity?: number; unit: string };
+
+export type StockRequest = { id: string; fromLocationId: string; toLocationId: string; status: StockRequestStatus; lines: StockRequestLine[]; reason: string; createdAt: string; updatedAt: string };
+
+export type DailyCountLine = { ingredientId: string; openingQuantity: number; receivedQuantity: number; theoreticalSoldQuantity?: number; theoreticalSoldStatus: 'AVAILABLE' | 'NOT_AVAILABLE' | 'INCOMPLETE_THEORY'; closingQuantity: number; varianceQuantity: number; unit: string };
+
+export type DailyCount = { id: string; branchId: string; businessDate: string; status: CountStatus; lines: DailyCountLine[]; submittedAt?: string; createdAt: string };
+
+export type WastageRecord = { id: string; branchId: string; ingredientId: string; quantity: number; unit: string; reason: string; standardPrice: number; value: number; status: WastageStatus; note?: string; createdAt: string };
+
+export type BohWorkspace = { purchaseOrders: PurchaseOrder[]; receipts: GoodsReceipt[]; stockBalances: StockBalance[]; stockRequests: StockRequest[]; dailyCounts: DailyCount[]; wastage: WastageRecord[]; ledger: StockLedgerEntry[] };
+
 export type CreateStaffInput = { branchId: string; displayName: string; email: string; roleCodes: RoleCode[]; stationCodes?: string[]; stationAssignments?: Array<{ roleCode: RoleCode; stationCode: string }> };
 
 export type CreateShiftInput = { branchId: string; label: string; startsAt: string; endsAt: string };
@@ -156,6 +190,16 @@ export type SetMenuItemAllergensInput = { allergenCodes: string[] };
 
 export type SetMenuItemAvailabilityInput = { status: Extract<MenuItemStatus, 'PUBLISHED' | 'UNAVAILABLE' | 'INACTIVE'>; reason?: string };
 
+export type CreatePurchaseOrderInput = { branchId: string; supplierId: string; lines: Array<{ ingredientId: string; orderedQuantity: number; unit: string }> };
+
+export type ConfirmGoodsReceiptInput = { branchId: string; purchaseOrderId: string; lines: GoodsReceiptLine[] };
+
+export type CreateStockRequestInput = { fromLocationId: string; toLocationId: string; reason: string; lines: Array<{ ingredientId: string; requestedQuantity: number; unit: string }> };
+
+export type CreateDailyCountInput = { branchId: string; businessDate: string; lines: Array<Omit<DailyCountLine, 'varianceQuantity' | 'theoreticalSoldStatus'> & { theoreticalSoldQuantity?: number }> };
+
+export type CreateWastageInput = { branchId: string; ingredientId: string; quantity: number; unit: string; reason: string; note?: string };
+
 export type OperationsRepository = {
   getStaffWorkspace(actor: Actor, branchId: string): Promise<StaffWorkspace>;
   createStaff(actor: Actor, input: CreateStaffInput, requestId: string): Promise<StaffProfile>;
@@ -176,4 +220,14 @@ export type OperationsRepository = {
   setMenuItemAvailability(actor: Actor, menuItemId: string, input: SetMenuItemAvailabilityInput, requestId: string): Promise<MenuItem>;
   createRecipe(actor: Actor, input: CreateRecipeInput, requestId: string): Promise<RecipeVersion>;
   publishRecipe(actor: Actor, recipeId: string, requestId: string): Promise<RecipeVersion>;
+  getBohWorkspace(actor: Actor, branchId: string): Promise<BohWorkspace>;
+  createPurchaseOrder(actor: Actor, input: CreatePurchaseOrderInput, requestId: string, idempotencyKey: string): Promise<PurchaseOrder>;
+  commandPurchaseOrder(actor: Actor, purchaseOrderId: string, command: 'send' | 'cancel', requestId: string, idempotencyKey: string): Promise<PurchaseOrder>;
+  confirmGoodsReceipt(actor: Actor, input: ConfirmGoodsReceiptInput, requestId: string, idempotencyKey: string): Promise<GoodsReceipt>;
+  createStockRequest(actor: Actor, input: CreateStockRequestInput, requestId: string, idempotencyKey: string): Promise<StockRequest>;
+  commandStockRequest(actor: Actor, requestIdId: string, command: 'approve' | 'reject' | 'ship' | 'accept', input: { reason: string; idempotencyKey: string }): Promise<StockRequest>;
+  createDailyCount(actor: Actor, input: CreateDailyCountInput, requestId: string, idempotencyKey: string): Promise<DailyCount>;
+  submitDailyCount(actor: Actor, countId: string, requestId: string, idempotencyKey: string): Promise<DailyCount>;
+  createWastage(actor: Actor, input: CreateWastageInput, requestId: string, idempotencyKey: string): Promise<WastageRecord>;
+  submitWastage(actor: Actor, wastageId: string, requestId: string, idempotencyKey: string): Promise<WastageRecord>;
 };

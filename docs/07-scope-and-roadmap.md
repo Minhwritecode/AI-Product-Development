@@ -55,11 +55,14 @@ Roadmap này đã bao phủ toàn bộ production core; trạng thái code hiệ
   modifier, allergen registry, availability và recipe version/station mapping.
 - Weeks 3–4 có migration `004_weeks_3_4_completion.sql`, API command có
   permission/branch scope/transaction/audit, memory fixture, UI staff/master data,
-  test acceptance và anti-slop lint/typecheck evidence. Chưa triển khai production
-  code của Weeks 5–16.
-- Chưa triển khai production code: Tuần 5–16, gồm stock ledger, FOH queue,
-  service/order, kitchen/bar, billing/payment, reporting, AI boundary hardening,
-  release hardening và mobile delivery.
+  test acceptance và anti-slop lint/typecheck evidence.
+- Đã hoàn thành vertical slice Weeks 5–6: purchasing/PO, goods receipt atomic,
+  warehouse ledger, branch stock request/transfer, daily count và wastage. Có
+  migration `005_weeks_5_6_inventory.sql`, idempotency, branch scope, audit,
+  memory fixture, cloud PostgreSQL repository và BOH console.
+- Chưa triển khai production code: Tuần 7–16, gồm dashboard/reconciliation,
+  FOH queue, service/order, kitchen/bar, billing/payment, reporting, AI boundary
+  hardening, release hardening và mobile delivery.
 
 Mỗi mục chỉ được chuyển sang “Done” khi có migration, command/API, permission,
 audit, failure path, test và browser evidence theo Definition of Done bên dưới.
@@ -117,21 +120,23 @@ MenuVersion, Modifier, Allergen, RecipeVersion, StationAssignment.
 availability, recipe version và station mapping đều validate; order history không
 đổi khi master version đổi.
 
-### Tuần 5 — Purchasing, goods receipt và warehouse ledger
+### Tuần 5 — Purchasing, goods receipt và warehouse ledger — COMPLETED
 
 **Scope:** PO/lines, supplier delivery, receipt discrepancy, confirmed receipt,
 warehouse stock projection, append-only ledger và idempotency.
 
 **Acceptance:** Draft → Sent → Delivered policy rõ; receipt draft không mutate;
 confirm atomically update receipt/stock/ledger/audit; retry không double-add.
+Đã có migration, transaction path, idempotency key và BOH console.
 
-### Tuần 6 — Branch stock, transfer và count/wastage
+### Tuần 6 — Branch stock, transfer và count/wastage — COMPLETED
 
 **Scope:** StockRequest, approval/rejection, shipment/in-transit/acceptance,
 BranchStock, DailyCount, Wastage, variance, standard-price snapshot.
 
 **Acceptance:** warehouse không trừ trước approval; branch acceptance đúng state;
 missing theoretical sold là incomplete; wastage reason/value/source/actor đầy đủ.
+Đã có state command, branch scope, ledger/audit, form validation và idempotency.
 
 Full correction/reversal, period lock và approval nâng cao dùng contract đã chuẩn
 bị nhưng triển khai sau khi flow count/wastage cơ bản ổn định.

@@ -31,6 +31,12 @@ try {
     SELECT 'OWNER', code FROM permissions ON CONFLICT DO NOTHING`);
   await pool.query(`INSERT INTO restaurants (id, name) VALUES ('rest_luminex', 'Luminex Demo Restaurant') ON CONFLICT DO NOTHING`);
   await pool.query(`INSERT INTO branches (id, restaurant_id, name, code) VALUES ('branch_central', 'rest_luminex', 'Phố đi bộ Central', 'CENTRAL') ON CONFLICT DO NOTHING`);
+  await pool.query(`INSERT INTO suppliers (id, restaurant_id, code, name) VALUES ('supplier_fresh', 'rest_luminex', 'FRESH-01', 'Fresh Farm Central') ON CONFLICT DO NOTHING`);
+  await pool.query(`INSERT INTO ingredients (id, restaurant_id, name, purchase_unit, stock_unit, purchase_to_stock, standard_cost) VALUES
+    ('ingredient_chicken', 'rest_luminex', 'Ức gà', 'kg', 'g', 1000, 125000),
+    ('ingredient_coffee', 'rest_luminex', 'Cà phê hạt Arabica', 'kg', 'g', 1000, 420000),
+    ('ingredient_lettuce', 'rest_luminex', 'Xà lách', 'kg', 'g', 1000, 85000)
+    ON CONFLICT (id) DO NOTHING`);
   await pool.query(`INSERT INTO users (id, email, display_name, password_hash) VALUES ('usr_owner', 'admin@luminex.local', 'Linh Nguyễn', $1) ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`, [passwordHash]);
   await pool.query(`INSERT INTO user_roles (user_id, role_code) VALUES ('usr_owner', 'OWNER') ON CONFLICT DO NOTHING`);
   await pool.query(`INSERT INTO restaurant_memberships (user_id, restaurant_id) VALUES ('usr_owner', 'rest_luminex') ON CONFLICT DO NOTHING`);
@@ -63,6 +69,14 @@ try {
     ('table_03', 'area_main', 'T03', 6, '["family"]'::jsonb, 'READY'),
     ('table_04', 'area_rooftop', 'R01', 4, '["outdoor"]'::jsonb, 'BLOCKED')
     ON CONFLICT DO NOTHING`);
+  await pool.query(`INSERT INTO stock_locations (id, branch_id, kind, label) VALUES
+    ('location_warehouse', NULL, 'WAREHOUSE', 'Central warehouse'),
+    ('location_branch_central', 'branch_central', 'BRANCH', 'Central branch store')
+    ON CONFLICT (id) DO NOTHING`);
+  await pool.query(`INSERT INTO stock_balances (location_id, ingredient_id, quantity, unit) VALUES
+    ('location_warehouse', 'ingredient_chicken', 42, 'kg'),
+    ('location_branch_central', 'ingredient_chicken', 8, 'kg')
+    ON CONFLICT (location_id, ingredient_id) DO NOTHING`);
   await pool.query(`INSERT INTO audit_logs (action, entity_type, entity_id, request_id, reason) SELECT 'SEED', 'SYSTEM', 'platform', 'seed', 'Initial local platform fixture' WHERE NOT EXISTS (SELECT 1 FROM audit_logs WHERE action = 'SEED' AND entity_type = 'SYSTEM' AND entity_id = 'platform')`);
   await pool.query('COMMIT');
   console.log('Seeded Luminex platform fixture. Demo login: admin@luminex.local / luminex-demo');

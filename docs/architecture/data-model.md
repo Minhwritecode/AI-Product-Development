@@ -93,6 +93,23 @@ Staff ──< ShiftAssignment / AttendanceEvent / OperationalTask
 
 `branch_id`, `count_date`, `ingredient_id`, `opening_qty`, `received_qty`, `sold_qty_theory?`, `closing_qty_actual`, `variance_qty`, `variance_status`; wastage line includes `qty`, `reason`, `standard_price_snapshot`, `value`.
 
+### Weeks 5–6 inventory control
+
+- `PurchaseOrder` và `PurchaseOrderLine` giữ supplier, branch, ordered quantity,
+  received quantity và trạng thái `DRAFT → SENT → PARTIALLY_RECEIVED/RECEIVED`.
+- `GoodsReceipt` và `GoodsReceiptLine` tách accepted/damaged/rejected quantity;
+  chỉ receipt `CONFIRMED` mới cập nhật `StockBalance` và thêm `InventoryLedger`.
+- `StockLocation` phân biệt warehouse với branch store. `StockRequest` đi qua
+  `REQUESTED → APPROVED/REJECTED → IN_TRANSIT → CLOSED`; warehouse chỉ trừ khi
+  `ship`, branch chỉ cộng khi `accept`.
+- `DailyCountLine` lưu `theoretical_sold_status`; khi không có dữ liệu bán lý
+  thuyết phải là `INCOMPLETE_THEORY`, không quy đổi thành zero.
+- `WastageRecord` lưu quantity, reason, standard price snapshot và value; record
+  posted không sửa trực tiếp mà dùng correction/compensating event ở milestone
+  reconciliation.
+- Mọi command có `Idempotency-Key`, audit event và transaction boundary tương ứng;
+  retry không được tạo receipt, ledger hoặc stock mutation lần hai.
+
 ### FOH Guest / Queue / Request
 
 - `GuestSession`: `id`, `locale`, `consent/notification_preference`, `expires_at`, `created_at`; không chứa PII mặc định.

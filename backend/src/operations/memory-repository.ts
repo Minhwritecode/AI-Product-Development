@@ -23,7 +23,19 @@ import type {
   ShiftAssignment,
   StaffProfile,
   StaffWorkspace,
-  Supplier
+  Supplier,
+  BohWorkspace,
+  CreateDailyCountInput,
+  CreatePurchaseOrderInput,
+  CreateStockRequestInput,
+  CreateWastageInput,
+  DailyCount,
+  GoodsReceipt,
+  PurchaseOrder,
+  StockRequest,
+  StockBalance,
+  StockLedgerEntry,
+  WastageRecord
 } from './types.js';
 
 type AuditEvent = { action: string; entityType: string; entityId: string; actorId: string; requestId: string };
@@ -96,6 +108,34 @@ export function createMemoryOperationsRepository(): OperationsRepository {
     ['recipe_chicken_v1', { id: 'recipe_chicken_v1', menuItemId: 'item_chicken', version: 1, status: 'PUBLISHED', stationCode: 'KITCHEN', publishedAt: '2026-10-01T00:00:00+07:00', lines: [{ ingredientId: 'ingredient_chicken', quantity: 180, unit: 'g' }, { ingredientId: 'ingredient_lettuce', quantity: 80, unit: 'g' }] }]
   ]);
 
+  const locations = new Map<string, { id: string; branchId?: string; kind: 'WAREHOUSE' | 'BRANCH'; label: string }>([
+    ['location_warehouse', { id: 'location_warehouse', kind: 'WAREHOUSE', label: 'Central warehouse' }],
+    ['location_branch_central', { id: 'location_branch_central', branchId: 'branch_central', kind: 'BRANCH', label: 'Central branch store' }]
+  ]);
+
+  const purchaseOrders = new Map<string, PurchaseOrder>([
+    ['po_1001', { id: 'po_1001', branchId: 'branch_central', supplierId: 'supplier_fresh', status: 'SENT', lines: [{ id: 'po_line_1001', ingredientId: 'ingredient_chicken', orderedQuantity: 25, receivedQuantity: 18, unit: 'kg' }], createdAt: '2026-10-20T07:10:00+07:00', updatedAt: '2026-10-20T09:00:00+07:00' }]
+  ]);
+
+  const receipts = new Map<string, GoodsReceipt>([
+    ['receipt_1001', { id: 'receipt_1001', branchId: 'branch_central', purchaseOrderId: 'po_1001', status: 'CONFIRMED', lines: [{ ingredientId: 'ingredient_chicken', acceptedQuantity: 18, damagedQuantity: 0, rejectedQuantity: 0, unit: 'kg' }], confirmedAt: '2026-10-20T09:00:00+07:00', createdAt: '2026-10-20T08:55:00+07:00' }]
+  ]);
+
+  const balances = new Map<string, StockBalance>([
+    ['location_warehouse:ingredient_chicken', { locationId: 'location_warehouse', locationLabel: 'Central warehouse', locationKind: 'WAREHOUSE', ingredientId: 'ingredient_chicken', quantity: 42, unit: 'kg', updatedAt: '2026-10-20T09:00:00+07:00' }],
+    ['location_branch_central:ingredient_chicken', { locationId: 'location_branch_central', locationLabel: 'Central branch store', locationKind: 'BRANCH', ingredientId: 'ingredient_chicken', quantity: 8, unit: 'kg', updatedAt: '2026-10-20T09:00:00+07:00' }]
+  ]);
+
+  const ledger: StockLedgerEntry[] = [{ id: 'ledger_receipt_1001', locationId: 'location_warehouse', ingredientId: 'ingredient_chicken', quantityDelta: 18, unit: 'kg', eventType: 'GOODS_RECEIPT_CONFIRMED', sourceType: 'GOODS_RECEIPT', sourceId: 'receipt_1001', createdAt: '2026-10-20T09:00:00+07:00' }];
+
+  const stockRequests = new Map<string, StockRequest>([
+    ['request_1001', { id: 'request_1001', fromLocationId: 'location_warehouse', toLocationId: 'location_branch_central', status: 'REQUESTED', reason: 'Bổ sung hàng trước giờ cao điểm tối', lines: [{ ingredientId: 'ingredient_chicken', requestedQuantity: 6, unit: 'kg' }], createdAt: '2026-10-20T10:00:00+07:00', updatedAt: '2026-10-20T10:00:00+07:00' }]
+  ]);
+
+  const dailyCounts = new Map<string, DailyCount>();
+  const wastage = new Map<string, WastageRecord>();
+  const idempotency = new Map<string, unknown>();
+
   const auditEvents: AuditEvent[] = [];
 
   function audit(action: string, entityType: string, entityId: string, actor: Actor, requestId: string) {
@@ -105,6 +145,32 @@ export function createMemoryOperationsRepository(): OperationsRepository {
   function branchCheck(actor: Actor, branchId: string) { assertBranchScope(actor, branchId); }
 
   function managerWrite(actor: Actor, permission: string) { assertPermission(actor, permission); }
+
+  function idempotent<T>(key: string, create: () => T): T {
+    const previous = idempotency.get(key);
+
+    if (previous) {
+      // SAFETY: Idempotency keys are generated per command and the map is only written with that command's typed result.
+      return previous as T;
+    }
+
+    const value = create();
+    idempotency.set(key, value);
+
+    return value;
+  }
+
+  function getLocation(id: string) { const location = locations.get(id); assert(location, 'NOT_FOUND', 'Stock location not found', 404);
+
+ return location; }
+
+  function getBalance(locationId: string, ingredientId: string, unit: string): StockBalance { const location = getLocation(locationId); const key = `${locationId}:${ingredientId}`; const balance = balances.get(key) ?? { locationId, locationLabel: location.label, locationKind: location.kind, ingredientId, quantity: 0, unit, updatedAt: new Date().toISOString() }; balances.set(key, balance);
+
+ return balance; }
+
+  function appendLedger(locationId: string, ingredientId: string, delta: number, unit: string, eventType: string, sourceType: string, sourceId: string) { const entry: StockLedgerEntry = { id: `ledger_${randomUUID().slice(0, 8)}`, locationId, ingredientId, quantityDelta: delta, unit, eventType, sourceType, sourceId, createdAt: new Date().toISOString() }; ledger.push(entry);
+
+ return entry; }
 
   function getStaff(id: string) { const value = staff.get(id); assert(value, 'NOT_FOUND', 'Staff profile not found', 404);
 
@@ -273,7 +339,119 @@ export function createMemoryOperationsRepository(): OperationsRepository {
     },
     async publishRecipe(actor, recipeId, requestId) { managerWrite(actor, 'master-data:write'); const recipe = recipes.get(recipeId); assert(recipe, 'NOT_FOUND', 'Recipe not found', 404); assert(recipe.lines.length > 0, 'VALIDATION_ERROR', 'Recipe needs at least one ingredient line'); recipes.forEach((candidate) => { if (candidate.menuItemId === recipe.menuItemId && candidate.status === 'PUBLISHED') candidate.status = 'RETIRED'; }); recipe.status = 'PUBLISHED'; recipe.publishedAt = new Date().toISOString(); audit('RECIPE_PUBLISHED', 'RECIPE_VERSION', recipe.id, actor, requestId);
 
- return recipe; }
+ return recipe; },
+    async getBohWorkspace(actor, branchId): Promise<BohWorkspace> {
+      branchCheck(actor, branchId);
+
+      return { purchaseOrders: [...purchaseOrders.values()].filter((po) => po.branchId === branchId), receipts: [...receipts.values()].filter((receipt) => receipt.branchId === branchId), stockBalances: [...balances.values()], stockRequests: [...stockRequests.values()], dailyCounts: [...dailyCounts.values()].filter((count) => count.branchId === branchId), wastage: [...wastage.values()].filter((item) => item.branchId === branchId), ledger: [...ledger] };
+    },
+    async createPurchaseOrder(actor, input: CreatePurchaseOrderInput, requestId, idempotencyKey) {
+      managerWrite(actor, 'master-data:write'); branchCheck(actor, input.branchId); assert(input.lines.length > 0, 'VALIDATION_ERROR', 'Purchase order needs at least one line');
+
+      return idempotent(idempotencyKey, () => { assert(suppliers.has(input.supplierId), 'NOT_FOUND', 'Supplier not found', 404); const seen = new Set<string>();
+
+ const lines = input.lines.map((line) => { assert(!seen.has(line.ingredientId), 'VALIDATION_ERROR', 'Purchase order cannot repeat an ingredient'); seen.add(line.ingredientId); assert(ingredients.has(line.ingredientId) && units.has(line.unit), 'VALIDATION_ERROR', 'Purchase order ingredient or unit is unknown'); assert(line.orderedQuantity > 0, 'VALIDATION_ERROR', 'Ordered quantity must be greater than zero');
+
+ return { id: `po_line_${randomUUID().slice(0, 8)}`, ingredientId: line.ingredientId, orderedQuantity: line.orderedQuantity, receivedQuantity: 0, unit: line.unit }; });
+
+ const po: PurchaseOrder = { id: `po_${randomUUID().slice(0, 8)}`, branchId: input.branchId, supplierId: input.supplierId, status: 'DRAFT', lines, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }; purchaseOrders.set(po.id, po); audit('PURCHASE_ORDER_CREATED', 'PURCHASE_ORDER', po.id, actor, requestId);
+
+ return po; });
+    },
+    async commandPurchaseOrder(actor, purchaseOrderId, command, requestId, idempotencyKey) {
+      managerWrite(actor, 'master-data:write');
+
+ return idempotent(idempotencyKey, () => { const po = purchaseOrders.get(purchaseOrderId); assert(po, 'NOT_FOUND', 'Purchase order not found', 404); branchCheck(actor, po.branchId);
+
+ if (command === 'send') { assert(po.status === 'DRAFT', 'CONFLICT', 'Only draft purchase orders can be sent', 409); po.status = 'SENT'; } else { assert(po.status === 'DRAFT' || po.status === 'SENT', 'CONFLICT', 'Purchase order cannot be cancelled in this state', 409); po.status = 'CANCELLED'; }
+
+ po.updatedAt = new Date().toISOString(); audit(`PURCHASE_ORDER_${command.toUpperCase()}`, 'PURCHASE_ORDER', po.id, actor, requestId);
+
+ return po; });
+    },
+    async confirmGoodsReceipt(actor, input, requestId, idempotencyKey) {
+      managerWrite(actor, 'master-data:write'); branchCheck(actor, input.branchId); assert(input.lines.length > 0, 'VALIDATION_ERROR', 'Receipt needs at least one line');
+
+      return idempotent(idempotencyKey, () => { const po = purchaseOrders.get(input.purchaseOrderId); assert(po && po.branchId === input.branchId, 'NOT_FOUND', 'Purchase order not found', 404); assert(po.status !== 'CANCELLED' && po.status !== 'RECEIVED', 'CONFLICT', 'Purchase order cannot receive more goods', 409);
+
+ const receiptLines = input.lines.map((line) => { const orderLine = po.lines.find((candidate) => candidate.ingredientId === line.ingredientId); assert(orderLine, 'VALIDATION_ERROR', 'Receipt line is not on the purchase order'); const total = line.acceptedQuantity + line.damagedQuantity + line.rejectedQuantity; assert(total > 0 && line.acceptedQuantity >= 0 && line.damagedQuantity >= 0 && line.rejectedQuantity >= 0, 'VALIDATION_ERROR', 'Receipt quantities are invalid'); assert(orderLine.receivedQuantity + total <= orderLine.orderedQuantity, 'CONFLICT', 'Receipt exceeds ordered quantity', 409);
+
+ return line; });
+
+ const receipt: GoodsReceipt = { id: `receipt_${randomUUID().slice(0, 8)}`, branchId: input.branchId, purchaseOrderId: po.id, status: 'CONFIRMED', lines: receiptLines, confirmedAt: new Date().toISOString(), createdAt: new Date().toISOString() }; receipts.set(receipt.id, receipt); const warehouse = getLocation('location_warehouse');
+
+ for (const line of receiptLines) { const orderLine = po.lines.find((candidate) => candidate.ingredientId === line.ingredientId);
+
+ if (!orderLine) continue; orderLine.receivedQuantity += line.acceptedQuantity + line.damagedQuantity + line.rejectedQuantity;
+
+ if (line.acceptedQuantity > 0) { const balance = getBalance(warehouse.id, line.ingredientId, line.unit); balance.quantity += line.acceptedQuantity; balance.updatedAt = new Date().toISOString(); appendLedger(warehouse.id, line.ingredientId, line.acceptedQuantity, line.unit, 'GOODS_RECEIPT_CONFIRMED', 'GOODS_RECEIPT', receipt.id); } }
+
+ po.status = po.lines.every((line) => line.receivedQuantity >= line.orderedQuantity) ? 'RECEIVED' : 'PARTIALLY_RECEIVED'; po.updatedAt = new Date().toISOString(); audit('GOODS_RECEIPT_CONFIRMED', 'GOODS_RECEIPT', receipt.id, actor, requestId);
+
+ return receipt; });
+    },
+    async createStockRequest(actor, input: CreateStockRequestInput, requestId, idempotencyKey) {
+      managerWrite(actor, 'master-data:write'); const from = getLocation(input.fromLocationId); const to = getLocation(input.toLocationId); assert(to.branchId, 'VALIDATION_ERROR', 'Destination must be a branch location'); branchCheck(actor, to.branchId); assert(input.lines.length > 0 && input.reason.trim().length >= 3, 'VALIDATION_ERROR', 'Stock request needs a reason and line'); assert(from.id !== to.id, 'VALIDATION_ERROR', 'Stock request locations must differ');
+
+      return idempotent(idempotencyKey, () => { const lines = input.lines.map((line) => { assert(ingredients.has(line.ingredientId) && units.has(line.unit), 'VALIDATION_ERROR', 'Stock request ingredient or unit is unknown'); assert(line.requestedQuantity > 0, 'VALIDATION_ERROR', 'Requested quantity must be greater than zero');
+
+ return { ingredientId: line.ingredientId, requestedQuantity: line.requestedQuantity, unit: line.unit }; });
+
+ const request: StockRequest = { id: `request_${randomUUID().slice(0, 8)}`, fromLocationId: from.id, toLocationId: to.id, status: 'REQUESTED', lines, reason: input.reason.trim(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }; stockRequests.set(request.id, request); audit('STOCK_REQUEST_CREATED', 'STOCK_REQUEST', request.id, actor, requestId);
+
+ return request; });
+    },
+    async commandStockRequest(actor, requestIdId, command, input) {
+      managerWrite(actor, 'master-data:write');
+
+      return idempotent(input.idempotencyKey, () => { const request = stockRequests.get(requestIdId); assert(request, 'NOT_FOUND', 'Stock request not found', 404); const from = getLocation(request.fromLocationId); const to = getLocation(request.toLocationId); assert(to.branchId, 'VALIDATION_ERROR', 'Destination must be a branch location'); branchCheck(actor, to.branchId);
+
+ if (command === 'approve') { assert(request.status === 'REQUESTED', 'CONFLICT', 'Only requested stock transfers can be approved', 409); request.status = 'APPROVED'; request.lines = request.lines.map((line) => ({ ...line, approvedQuantity: line.requestedQuantity })); }
+
+ if (command === 'reject') { assert(request.status === 'REQUESTED', 'CONFLICT', 'Only requested stock transfers can be rejected', 409); assert(input.reason?.trim(), 'VALIDATION_ERROR', 'Rejection reason is required'); request.status = 'REJECTED'; }
+
+ if (command === 'ship') { assert(request.status === 'APPROVED', 'CONFLICT', 'Only approved stock transfers can ship', 409);
+
+ for (const line of request.lines) { const quantity = line.approvedQuantity ?? line.requestedQuantity; const balance = getBalance(from.id, line.ingredientId, line.unit); assert(balance.quantity >= quantity, 'CONFLICT', 'Insufficient available stock', 409); balance.quantity -= quantity; balance.updatedAt = new Date().toISOString(); appendLedger(from.id, line.ingredientId, -quantity, line.unit, 'STOCK_SHIPPED', 'STOCK_REQUEST', request.id); }
+
+ request.lines = request.lines.map((line) => ({ ...line, shippedQuantity: line.approvedQuantity ?? line.requestedQuantity })); request.status = 'IN_TRANSIT'; }
+
+ if (command === 'accept') { assert(request.status === 'IN_TRANSIT', 'CONFLICT', 'Only in-transit stock transfers can be accepted', 409);
+
+ for (const line of request.lines) { const quantity = line.shippedQuantity ?? 0; const balance = getBalance(to.id, line.ingredientId, line.unit); balance.quantity += quantity; balance.updatedAt = new Date().toISOString(); appendLedger(to.id, line.ingredientId, quantity, line.unit, 'STOCK_RECEIVED', 'STOCK_REQUEST', request.id); }
+
+ request.lines = request.lines.map((line) => ({ ...line, receivedQuantity: line.shippedQuantity ?? 0 })); request.status = 'CLOSED'; }
+
+ request.updatedAt = new Date().toISOString(); audit(`STOCK_REQUEST_${command.toUpperCase()}`, 'STOCK_REQUEST', request.id, actor, requestIdId);
+
+ return request; });
+    },
+    async createDailyCount(actor, input: CreateDailyCountInput, requestId, idempotencyKey) {
+      managerWrite(actor, 'master-data:write'); branchCheck(actor, input.branchId); assert(input.lines.length > 0, 'VALIDATION_ERROR', 'Daily count needs at least one line');
+
+      return idempotent(idempotencyKey, () => { const lines = input.lines.map((line) => { const theoreticalSoldStatus: DailyCount['lines'][number]['theoreticalSoldStatus'] = line.theoreticalSoldQuantity === undefined ? 'INCOMPLETE_THEORY' : 'AVAILABLE'; const theoretical = line.theoreticalSoldQuantity ?? 0;
+
+ return { ...line, varianceQuantity: theoreticalSoldStatus === 'AVAILABLE' ? line.closingQuantity - (line.openingQuantity + line.receivedQuantity - theoretical) : 0, theoreticalSoldStatus }; });
+
+ const count: DailyCount = { id: `count_${randomUUID().slice(0, 8)}`, branchId: input.branchId, businessDate: input.businessDate, status: 'DRAFT', lines, createdAt: new Date().toISOString() }; dailyCounts.set(count.id, count); audit('DAILY_COUNT_CREATED', 'DAILY_COUNT', count.id, actor, requestId);
+
+ return count; });
+    },
+    async submitDailyCount(actor, countId, requestId, idempotencyKey) { managerWrite(actor, 'master-data:write');
+
+ return idempotent(idempotencyKey, () => { const count = dailyCounts.get(countId); assert(count, 'NOT_FOUND', 'Daily count not found', 404); branchCheck(actor, count.branchId); assert(count.status === 'DRAFT' || count.status === 'REJECTED', 'CONFLICT', 'Daily count cannot be submitted in this state', 409); count.status = 'SUBMITTED'; count.submittedAt = new Date().toISOString(); audit('DAILY_COUNT_SUBMITTED', 'DAILY_COUNT', count.id, actor, requestId);
+
+ return count; }); },
+    async createWastage(actor, input: CreateWastageInput, requestId, idempotencyKey) { managerWrite(actor, 'master-data:write'); branchCheck(actor, input.branchId); const ingredient = ingredients.get(input.ingredientId); assert(ingredient, 'NOT_FOUND', 'Ingredient not found', 404); assert(input.quantity > 0 && input.reason.trim().length >= 3, 'VALIDATION_ERROR', 'Wastage quantity and reason are required');
+
+ return idempotent(idempotencyKey, () => { const record: WastageRecord = { id: `wastage_${randomUUID().slice(0, 8)}`, branchId: input.branchId, ingredientId: input.ingredientId, quantity: input.quantity, unit: input.unit, reason: input.reason.trim(), standardPrice: ingredient.standardCost, value: input.quantity * ingredient.standardCost, status: 'DRAFT', note: input.note?.trim(), createdAt: new Date().toISOString() }; wastage.set(record.id, record); audit('WASTAGE_CREATED', 'WASTAGE', record.id, actor, requestId);
+
+ return record; }); },
+    async submitWastage(actor, wastageId, requestId, idempotencyKey) { managerWrite(actor, 'master-data:write');
+
+ return idempotent(idempotencyKey, () => { const record = wastage.get(wastageId); assert(record, 'NOT_FOUND', 'Wastage record not found', 404); branchCheck(actor, record.branchId); assert(record.status === 'DRAFT' || record.status === 'REJECTED', 'CONFLICT', 'Wastage cannot be submitted in this state', 409); record.status = 'SUBMITTED'; audit('WASTAGE_SUBMITTED', 'WASTAGE', record.id, actor, requestId);
+
+ return record; }); }
   };
 
   return repository;
