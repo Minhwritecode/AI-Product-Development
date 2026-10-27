@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Luminex FOH → BOH Architecture",
+    "locale": "en",
+    "output": "docs/architecture/luminex-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Minhwritecode/AI-Product-Development.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "385a2ee64bde2b5a171ee8dfa9f8107694862b42"
+    }
+  },
+  "components": [
+    {
+      "id": "guest-browser",
+      "type": "external",
+      "label": "Guest Browser",
+      "sublabel": "QR / no-login flow",
+      "tag": "FOH",
+      "pos": [40, 230],
+      "size": [150, 64],
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 6, "end_line": 8, "label": "browser boundary" },
+        { "path": "docs/architecture/overview.md", "line": 26, "end_line": 33, "label": "guest responsibilities" }
+      ]
+    },
+    {
+      "id": "staff-browser",
+      "type": "frontend",
+      "label": "Staff Browser",
+      "sublabel": "React + Vite console",
+      "tag": "FOH / BOH",
+      "pos": [40, 390],
+      "size": [150, 64],
+      "sources": [
+        { "path": "frontend/src/main.tsx", "line": 1, "end_line": 9, "label": "frontend entrypoint" },
+        { "path": "docs/architecture/overview.md", "line": 24, "end_line": 32, "label": "frontend boundary" }
+      ]
+    },
+    {
+      "id": "foh-edge",
+      "type": "backend",
+      "label": "FOH QR / Queue Edge",
+      "sublabel": "signed token + session scope",
+      "tag": "FOH module",
+      "pos": [290, 230],
+      "size": [180, 64],
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 19, "end_line": 21, "label": "FOH edge" },
+        { "path": "docs/architecture/overview.md", "line": 33, "end_line": 33, "label": "QR boundary" }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Luminex API",
+      "sublabel": "Fastify + TypeScript",
+      "tag": "runtime",
+      "pos": [540, 310],
+      "size": [170, 64],
+      "sources": [
+        { "path": "backend/src/server.ts", "line": 1, "end_line": 22, "label": "API composition" },
+        { "path": "backend/src/app.ts", "line": 94, "end_line": 125, "label": "auth + error boundary" }
+      ]
+    },
+    {
+      "id": "boh-operations",
+      "type": "backend",
+      "label": "BOH Operations",
+      "sublabel": "PO / receipt / stock / count / wastage",
+      "tag": "BOH module",
+      "pos": [790, 500],
+      "size": [205, 64],
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 40, "end_line": 46, "label": "module ownership" },
+        { "path": "backend/src/operations/postgres-repository.ts", "line": 18, "end_line": 63, "label": "transaction + idempotency" },
+        { "path": "backend/src/db/migrations/005_weeks_5_6_inventory.sql", "line": 18, "end_line": 147, "label": "inventory records" }
+      ]
+    },
+    {
+      "id": "write-controls",
+      "type": "security",
+      "label": "Write-path Controls",
+      "sublabel": "validation · scope · idempotency · audit",
+      "tag": "cross-cutting",
+      "pos": [790, 310],
+      "size": [205, 64],
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 69, "end_line": 85, "label": "required write path" },
+        { "path": "backend/src/app.ts", "line": 81, "end_line": 92, "label": "command validation" },
+        { "path": "backend/src/operations/postgres-repository.ts", "line": 18, "end_line": 63, "label": "transaction + replay" }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "source of truth + audit / ledger",
+      "tag": "managed cloud",
+      "pos": [1050, 310],
+      "size": [190, 64],
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 55, "end_line": 67, "label": "data ownership" },
+        { "path": "backend/src/server.ts", "line": 8, "end_line": 21, "label": "database adapter" },
+        { "path": "backend/src/db/migrations/005_weeks_5_6_inventory.sql", "line": 68, "end_line": 80, "label": "append-only ledger" }
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "cache / rate limit / session support",
+      "tag": "non-authoritative",
+      "pos": [1050, 135],
+      "size": [220, 64],
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 24, "end_line": 32, "label": "Redis responsibility" },
+        { "path": "docs/architecture/overview.md", "line": 55, "end_line": 67, "label": "source-of-truth rule" }
+      ]
+    },
+    {
+      "id": "ai-adapter",
+      "type": "cloud",
+      "label": "AI Adapter",
+      "sublabel": "authorized projection → suggestion",
+      "tag": "human approval",
+      "pos": [1050, 500],
+      "size": [220, 64],
+      "sources": [
+        { "path": "docs/architecture/overview.md", "line": 24, "end_line": 32, "label": "AI boundary" },
+        { "path": "docs/architecture/overview.md", "line": 65, "end_line": 67, "label": "AI ownership" },
+        { "path": "docs/architecture/overview.md", "line": 101, "end_line": 107, "label": "security boundary" }
+      ]
+    }
+  ],
+  "connections": [
+    { "id": "guest-to-foh", "from": "guest-browser", "to": "foh-edge", "label": "QR / session-scoped REST", "variant": "emphasis" },
+    { "id": "staff-to-api", "from": "staff-browser", "to": "api", "label": "REST/JSON + JWT", "variant": "emphasis" },
+    { "id": "foh-to-api", "from": "foh-edge", "to": "api", "label": "queue / table request", "variant": "security" },
+    { "id": "api-to-boh", "from": "api", "to": "boh-operations", "label": "BOH commands", "variant": "emphasis" },
+    { "id": "api-to-controls", "from": "api", "to": "write-controls", "label": "validated command" },
+    { "id": "boh-to-controls", "from": "boh-operations", "to": "write-controls", "label": "stock mutation", "variant": "security", "fromSide": "top", "toSide": "bottom" },
+    { "id": "controls-to-postgres", "from": "write-controls", "to": "postgres", "label": "transaction + audit + ledger", "variant": "security" },
+    { "id": "api-to-redis", "from": "api", "to": "redis", "label": "optional support", "variant": "dashed", "fromSide": "top", "toSide": "bottom" },
+    { "id": "api-to-ai", "from": "api", "to": "ai-adapter", "label": "authorized projection", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "ai-to-api", "from": "ai-adapter", "to": "api", "label": "draft suggestion / read-only", "variant": "security", "fromSide": "top", "toSide": "bottom" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "FOH flow",
+      "items": [
+        "Guest uses a QR flow without an app or login.",
+        "The QR edge exposes only the current queue/table session.",
+        "Staff acknowledgement remains the hospitality fallback."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "BOH flow",
+      "items": [
+        "Purchasing and goods receipt feed warehouse stock.",
+        "Branch requests move through approval, shipment and closure.",
+        "Daily count and wastage preserve variance and value evidence."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Safety boundaries",
+      "items": [
+        "PostgreSQL owns business state; Redis is never authoritative.",
+        "Stock mutations use a transaction, append-only ledger and audit event.",
+        "AI cannot directly mutate queue, stock, PO, wastage or payment."
+      ]
+    }
+  ]
+}
