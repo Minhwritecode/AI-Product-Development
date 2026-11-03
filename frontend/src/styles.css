@@ -255,6 +255,25 @@ input::placeholder { color: #657775; }
 @media (max-width: 760px) { .operations-view { padding-top: 25px; }.view-header { display: block; }.view-header .button { width: 100%; margin-top: 20px; }.operations-metrics, .master-kpis { grid-template-columns: repeat(2, 1fr); }.staff-row { grid-template-columns: 36px 1fr auto; }.staff-tags { grid-column: 2 / -1; }.availability { grid-column: 3; grid-row: 1; }.task-row { grid-template-columns: 6px minmax(0, 1fr) auto; }.task-row .task-actions { grid-column: 2 / -1; }.task-row > .status-badge { grid-column: 3; grid-row: 1; }.inline-form, .master-form { display: grid; grid-template-columns: 1fr; }.master-form label:first-child { grid-column: auto; }.inline-form .button, .master-form .button { width: 100%; }.data-panel { padding: 17px; }.task-list { margin: 14px -17px -17px; }.task-row { padding: 9px 17px; } }
 @media (prefers-reduced-motion: reduce) { .operations-view .button:hover, .area-card:hover { transform: none; } }
 
+/* FOH live state: status is always conveyed with text, icon and tone. */
+.status-mark { display: inline-grid; width: 24px; height: 24px; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-weight: 800; }
+.status-mark-open { color: var(--teal); background: rgba(94,234,212,.1); }
+.status-mark-paused, .status-mark-full { color: var(--gold); background: rgba(246,196,83,.1); }
+.status-mark-closed { color: var(--coral); background: rgba(247,137,118,.1); }
+.state-paused, .state-full { border-color: rgba(246,196,83,.3); background: rgba(246,196,83,.06); }
+.state-closed { border-color: rgba(247,137,118,.3); background: rgba(247,137,118,.06); }
+.guest-refresh-meta, .freshness-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #78908a; font-size: .72rem; }
+.guest-refresh-meta .guest-text-button, .freshness-line .text-button { margin-top: 0; }
+.freshness-fresh { color: var(--teal); }.freshness-stale { color: var(--gold); }
+.guest-result-actions { display: grid; gap: 8px; margin-top: 16px; }.guest-result-actions .guest-text-button { margin-top: 0; }
+.guest-checkbox { display: flex; align-items: flex-start; gap: 9px; line-height: 1.4; }.guest-checkbox input { width: 18px; height: 18px; margin-top: 1px; }
+.field-help { display: block; margin-top: 5px; color: #718b84; font-size: .72rem; }
+.inline-confirm { grid-column: 1 / -1; display: grid; gap: 10px; border: 1px solid rgba(247,137,118,.25); border-radius: 9px; padding: 12px; background: rgba(247,137,118,.05); }.inline-confirm label { display: grid; gap: 6px; color: #b9cbc3; font-size: .75rem; }.inline-confirm input { height: 42px; }.button-danger { border-color: rgba(247,137,118,.4); color: var(--coral); background: rgba(247,137,118,.08); }
+.reservation-panel { margin-top: 16px; }.reservation-list { display: grid; gap: 0; margin-top: 15px; }.reservation-row { display: grid; grid-template-columns: minmax(160px, 1fr) auto auto; align-items: center; gap: 14px; border-top: 1px solid rgba(190,217,207,.08); padding: 14px 0; }.reservation-row strong, .reservation-row small { display: block; }.reservation-row strong { color: #e0ebe3; font-size: .86rem; }.reservation-row small { margin-top: 5px; color: #718984; font-size: .72rem; }.reservation-row .button { min-height: 38px; }
+.status-cancelled, .status-expired { color: var(--coral); border-color: rgba(247,137,118,.25); background: rgba(247,137,118,.07); }
+.status-open { color: var(--teal); border-color: rgba(94,234,212,.22); background: rgba(94,234,212,.07); }
+@media (max-width: 760px) { .reservation-row { grid-template-columns: 1fr auto; }.reservation-row .button-row { grid-column: 1 / -1; }.freshness-line { align-items: flex-start; flex-wrap: wrap; }.freshness-line .text-button { margin-left: auto; } }
+
 /* Week 7 BOH dashboard: dense evidence panels, with motion reserved for live status. */
 .dashboard-view { padding-top: 36px; }
 .dashboard-view .view-header { margin-bottom: 30px; }

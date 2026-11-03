@@ -83,6 +83,8 @@ export type FrontDoorStatus = { branchId: string; operatingState: 'OPEN' | 'PAUS
 
 export type QueueEntry = { id: string; branchId: string; queueCode: string; accessToken: string; status: 'WAITING' | 'CALLED' | 'SEATED' | 'LEFT' | 'CANCELLED' | 'EXPIRED'; partySize: number; timeBudgetMinutes: number; language: 'vi' | 'en'; nickname?: string; notificationOptIn: boolean; createdAt: string; calledAt?: string; completedAt?: string };
 
+export type Reservation = { id: string; branchId: string; status: 'HELD' | 'CONFIRMED' | 'ARRIVED' | 'CANCELLED' | 'NO_SHOW' | 'EXPIRED'; partySize: number; reservedFor: string; durationMinutes: number; holdUntil?: string; language: 'vi' | 'en'; nickname?: string; createdAt: string; updatedAt: string };
+
 export function createApiClient(baseUrl: string) {
   const root = baseUrl.replace(/\/$/, '');
 
@@ -134,11 +136,13 @@ export function createApiClient(baseUrl: string) {
     bohWorkspace: (token: string, branchId: string) => request<BohWorkspace>(`/v1/boh/workspace?branchId=${encodeURIComponent(branchId)}`, {}, token),
     dashboardSummary: (token: string, branchId: string) => request<DashboardReport>(`/v1/dashboard/summary?branchId=${encodeURIComponent(branchId)}`, {}, token),
     frontDoorStatus: (branchId: string) => request<FrontDoorStatus>(`/v1/guest/front-door/status?branchId=${encodeURIComponent(branchId)}`),
-    joinQueue: (input: { branchId: string; partySize: number; timeBudgetMinutes: number; language: 'vi' | 'en'; nickname?: string; notificationOptIn?: boolean }, idempotencyKey: string) => request<QueueEntry>('/v1/guest/queues', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify(input) }),
-    guestQueue: (queueId: string, accessToken: string) => request<QueueEntry>(`/v1/guest/queues/${encodeURIComponent(queueId)}?accessToken=${encodeURIComponent(accessToken)}`),
-    leaveQueue: (queueId: string, accessToken: string, idempotencyKey: string) => request<QueueEntry>(`/v1/guest/queues/${encodeURIComponent(queueId)}/leave?accessToken=${encodeURIComponent(accessToken)}`, { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey } }),
+    joinQueue: (input: { branchId: string; partySize: number; timeBudgetMinutes: number; language: 'vi' | 'en'; nickname?: string; notificationOptIn?: boolean; contact?: string }, idempotencyKey: string) => request<QueueEntry>('/v1/guest/queues', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify(input) }),
+    guestQueue: (queueId: string, accessToken: string) => request<QueueEntry>(`/v1/guest/queues/${encodeURIComponent(queueId)}`, { headers: { 'X-Queue-Access-Token': accessToken } }),
+    leaveQueue: (queueId: string, accessToken: string, idempotencyKey: string) => request<QueueEntry>(`/v1/guest/queues/${encodeURIComponent(queueId)}/leave`, { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey, 'X-Queue-Access-Token': accessToken } }),
     fohQueue: (token: string, branchId: string) => request<QueueEntry[]>(`/v1/foh/queues?branchId=${encodeURIComponent(branchId)}`, {}, token),
     commandQueue: (token: string, queueId: string, command: 'call' | 'seat' | 'cancel' | 'expire', reason?: string) => request<QueueEntry>(`/v1/foh/queues/${encodeURIComponent(queueId)}/${command}`, { method: 'POST', body: JSON.stringify({ reason }) }, token),
+    reservations: (token: string, branchId: string, date?: string) => request<Reservation[]>(`/v1/reservations?branchId=${encodeURIComponent(branchId)}${date ? `&date=${encodeURIComponent(date)}` : ''}`, {}, token),
+    commandReservation: (token: string, reservationId: string, command: 'confirm' | 'arrive' | 'no-show') => request<Reservation>(`/v1/reservations/${encodeURIComponent(reservationId)}/${command}`, { method: 'POST', headers: { 'Idempotency-Key': `reservation-${command}-${reservationId}-${crypto.randomUUID()}` } }, token),
     createPurchaseOrder: (token: string, input: { branchId: string; supplierId: string; lines: { ingredientId: string; orderedQuantity: number; unit: string }[] }, idempotencyKey: string) => request<BohWorkspace['purchaseOrders'][number]>('/v1/purchase-orders', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify(input) }, token),
     commandPurchaseOrder: (token: string, purchaseOrderId: string, command: 'send' | 'cancel', idempotencyKey: string) => request<BohWorkspace['purchaseOrders'][number]>(`/v1/purchase-orders/${purchaseOrderId}/${command}`, { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey } }, token),
     confirmGoodsReceipt: (token: string, input: { branchId: string; purchaseOrderId: string; lines: { ingredientId: string; acceptedQuantity: number; damagedQuantity: number; rejectedQuantity: number; unit: string; note?: string }[] }, idempotencyKey: string) => request<BohWorkspace['receipts'][number]>('/v1/goods-receipts/confirm', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify(input) }, token),
