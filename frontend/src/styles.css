@@ -254,3 +254,26 @@ input::placeholder { color: #657775; }
 @media (max-width: 1120px) { .workspace-grid, .master-layout { grid-template-columns: 1fr; }.master-form { grid-template-columns: repeat(2, 1fr); }.master-form label:first-child { grid-column: 1 / -1; } }
 @media (max-width: 760px) { .operations-view { padding-top: 25px; }.view-header { display: block; }.view-header .button { width: 100%; margin-top: 20px; }.operations-metrics, .master-kpis { grid-template-columns: repeat(2, 1fr); }.staff-row { grid-template-columns: 36px 1fr auto; }.staff-tags { grid-column: 2 / -1; }.availability { grid-column: 3; grid-row: 1; }.task-row { grid-template-columns: 6px minmax(0, 1fr) auto; }.task-row .task-actions { grid-column: 2 / -1; }.task-row > .status-badge { grid-column: 3; grid-row: 1; }.inline-form, .master-form { display: grid; grid-template-columns: 1fr; }.master-form label:first-child { grid-column: auto; }.inline-form .button, .master-form .button { width: 100%; }.data-panel { padding: 17px; }.task-list { margin: 14px -17px -17px; }.task-row { padding: 9px 17px; } }
 @media (prefers-reduced-motion: reduce) { .operations-view .button:hover, .area-card:hover { transform: none; } }
+
+/* Week 7 BOH dashboard: dense evidence panels, with motion reserved for live status. */
+.dashboard-view { padding-top: 36px; }
+.dashboard-view .view-header { margin-bottom: 30px; }
+.dashboard-view .view-summary { align-self: flex-start; }
+.dashboard-view .view-summary strong { color: var(--teal); }
+.dashboard-metrics { margin-bottom: 18px; }
+.dashboard-grid { align-items: start; }
+.reconciliation-list, .audit-list { display: grid; gap: 0; }
+.reconciliation-row, .audit-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid rgba(190,217,207,.08); padding: 13px 0; }
+.reconciliation-row strong, .reconciliation-row small, .audit-row strong, .audit-row small { display: block; }
+.reconciliation-row strong, .audit-row strong { color: #dfece4; font-size: .86rem; }
+.reconciliation-row small, .audit-row small { margin-top: 4px; color: #6d8580; font: .68rem 'DM Mono', monospace; }
+.status-low, .status_mismatch { color: var(--gold); border-color: rgba(246,196,83,.23); background: rgba(246,196,83,.07); }
+.status-out, .status-mismatch { color: var(--coral); border-color: rgba(247,137,118,.25); background: rgba(247,137,118,.07); }
+.audit-panel { margin-top: 16px; }
+.audit-list { margin-top: 14px; }
+.audit-row { justify-content: flex-start; }
+.audit-row time { margin-left: auto; color: #718983; font: .66rem 'DM Mono', monospace; white-space: nowrap; }
+.audit-marker { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 4px rgba(94,234,212,.09); animation: signal-pulse 2.4s ease-in-out infinite; }
+@keyframes signal-pulse { 0%, 100% { opacity: .65; transform: scale(.9); } 50% { opacity: 1; transform: scale(1.05); } }
+@media (max-width: 760px) { .dashboard-view { padding-top: 25px; }.dashboard-view .view-summary { display: flex; align-items: center; gap: 8px; margin-top: 24px; border-left: 0; border-top: 1px solid var(--line); padding: 14px 0 0; }.dashboard-view .view-summary strong { font-size: 1.2rem; }.dashboard-view .view-summary span:last-of-type { margin-left: auto; }.dashboard-grid { margin-top: 14px; }.audit-row time { display: none; } }
+@media (prefers-reduced-motion: reduce) { .audit-marker { animation: none; } }
