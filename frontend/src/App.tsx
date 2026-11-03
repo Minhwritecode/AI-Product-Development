@@ -3,6 +3,8 @@ import { MasterDataPanel } from './components/MasterDataPanel';
 import { StaffOperationsPanel } from './components/StaffOperationsPanel';
 import { BohInventoryPanel } from './components/BohInventoryPanel';
 import { BohDashboardPanel } from './components/BohDashboardPanel';
+import { FohQueuePanel } from './components/FohQueuePanel';
+import { GuestFrontDoor } from './components/GuestFrontDoor';
 import { LuminexLogo } from './components/LuminexLogo';
 import { createApiClient, type Area, type Branch, type RestaurantTable, type SetupOverview } from './lib/api';
 
@@ -10,7 +12,7 @@ const api = createApiClient(import.meta.env.VITE_API_BASE_URL ?? 'http://localho
 
 const sessionStorageKey = 'luminex.session';
 
-type View = 'setup' | 'people' | 'master' | 'boh' | 'dashboard';
+type View = 'setup' | 'people' | 'master' | 'boh' | 'dashboard' | 'foh';
 
 const ThreeScene = lazy(() => import('./components/OperationsScene').then((module) => ({ default: module.OperationsScene })));
 
@@ -52,7 +54,7 @@ function AreaCard({ area, onAddTable }: { area: Area; onAddTable: (area: Area) =
 
  return <article className="area-card"><div className="area-heading"><div><span className="micro-label">KHU VỰC {String(area.sortOrder).padStart(2, '0')}</span><h3>{area.name}</h3></div><button className="icon-button" onClick={() => onAddTable(area)} aria-label={`Thêm bàn vào ${area.name}`}><Icon name="plus" /></button></div><div className="area-meta"><span><i className="status-dot status-ready" />{ready}/{area.tables.length} bàn sẵn sàng</span><span>{area.tables.reduce((total, table) => total + table.capacity, 0)} chỗ</span></div><div className="table-list">{area.tables.map((table) => <TableChip key={table.id} table={table} />)}{area.tables.length === 0 && <span className="empty-inline">Chưa có bàn · thêm bàn đầu tiên</span>}</div></article>; }
 
-function Sidebar({ view, onView, onLogout }: { view: View; onView: (view: View) => void; onLogout: () => void }) { return <aside className="sidebar"><LuminexLogo size={36} variant="lockup" className="brand-lockup" /><div className="sidebar-label">Workspace</div><nav className="side-nav" aria-label="Điều hướng chính"><button className={`nav-item ${view === 'setup' ? 'active' : ''}`} onClick={() => onView('setup')}><Icon name="grid" />Command center{view === 'setup' && <span className="nav-active-dot" />}</button><button className={`nav-item ${view === 'people' ? 'active' : ''}`} onClick={() => onView('people')}><Icon name="layers" />People & shifts{view === 'people' && <span className="nav-active-dot" />}</button><button className={`nav-item ${view === 'master' ? 'active' : ''}`} onClick={() => onView('master')}><Icon name="box" />Master data{view === 'master' && <span className="nav-active-dot" />}</button><button className={`nav-item ${view === 'boh' ? 'active' : ''}`} onClick={() => onView('boh')}><Icon name="box" />BOH inventory{view === 'boh' && <span className="nav-active-dot" />}</button><button className={`nav-item ${view === 'dashboard' ? 'active' : ''}`} onClick={() => onView('dashboard')}><Icon name="chart" />Insights{view === 'dashboard' && <span className="nav-active-dot" />}</button></nav><div className="sidebar-bottom"><div className="support-card"><span className="support-pulse" /><div><strong>Platform healthy</strong><small>Core services online</small></div></div><button className="nav-item logout" onClick={onLogout}><Icon name="logout" />Đăng xuất</button></div></aside>; }
+function Sidebar({ view, onView, onLogout }: { view: View; onView: (view: View) => void; onLogout: () => void }) { return <aside className="sidebar"><LuminexLogo size={36} variant="lockup" className="brand-lockup" /><div className="sidebar-label">Workspace</div><nav className="side-nav" aria-label="Điều hướng chính"><button className={`nav-item ${view === 'setup' ? 'active' : ''}`} onClick={() => onView('setup')}><Icon name="grid" />Command center{view === 'setup' && <span className="nav-active-dot" />}</button><button className={`nav-item ${view === 'people' ? 'active' : ''}`} onClick={() => onView('people')}><Icon name="layers" />People & shifts{view === 'people' && <span className="nav-active-dot" />}</button><button className={`nav-item ${view === 'master' ? 'active' : ''}`} onClick={() => onView('master')}><Icon name="box" />Master data{view === 'master' && <span className="nav-active-dot" />}</button><button className={`nav-item ${view === 'boh' ? 'active' : ''}`} onClick={() => onView('boh')}><Icon name="box" />BOH inventory{view === 'boh' && <span className="nav-active-dot" />}</button><button className={`nav-item ${view === 'foh' ? 'active' : ''}`} onClick={() => onView('foh')}><Icon name="layers" />FOH queue{view === 'foh' && <span className="nav-active-dot" />}</button><button className={`nav-item ${view === 'dashboard' ? 'active' : ''}`} onClick={() => onView('dashboard')}><Icon name="chart" />Insights{view === 'dashboard' && <span className="nav-active-dot" />}</button></nav><div className="sidebar-bottom"><div className="support-card"><span className="support-pulse" /><div><strong>Platform healthy</strong><small>Core services online</small></div></div><button className="nav-item logout" onClick={onLogout}><Icon name="logout" />Đăng xuất</button></div></aside>; }
 
 function ChecklistItem({ done, label, detail, action }: { done: boolean; label: string; detail: string; action?: () => void }) { return <div className="check-item"><span className={`check-icon ${done ? 'done' : ''}`}>{done ? <Icon name="check" /> : <span />}</span><div><strong>{label}</strong><small>{detail}</small></div>{action && !done && <button className="text-button" onClick={action}>Setup <Icon name="arrow" /></button>}</div>; }
 
@@ -88,11 +90,15 @@ function App() {
 
   async function createTable(area: Area, label: string, capacity: number) { if (!token) return; await api.createTable(token, area.id, { label, capacity }); await refresh(); setModal(null); setNotice(`Đã thêm bàn ${label} vào ${area.name}.`); }
 
+  if (window.location.pathname.startsWith('/guest')) return <GuestFrontDoor api={api} branchId={new URLSearchParams(window.location.search).get('branchId') ?? 'branch_central'} />;
+
   if (loading) return <div className="loading-screen"><span className="spinner" />Đang mở command center…</div>;
 
  if (!token || !overview) return <Login onLogin={(nextToken, data) => { setToken(nextToken); setOverview(data); setSelectedBranchId(data.branches[0]?.id ?? ''); }} />;
 
  if (!branch) return <div className="loading-screen">Chưa có branch trong scope hiện tại.</div>;
+
+ if (view === 'foh') return <div className="app-shell"><Sidebar view={view} onView={setView} onLogout={logout} /><main className="main-content"><header className="topbar"><div className="breadcrumb"><span>Workspace</span><Icon name="arrow" /><strong>FOH queue</strong></div><div className="topbar-actions"><label className="branch-select"><span>Branch</span><select value={selectedBranchId} onChange={(event) => setSelectedBranchId(event.target.value)}>{overview.branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><div className="avatar" title="Linh Nguyễn">LN</div></div></header>{error && <div className="notice notice-error" role="alert"><Icon name="alert" />{error}<button onClick={() => setError('')} aria-label="Đóng lỗi">×</button></div>}<FohQueuePanel api={api} token={token} branchId={branch.id} onError={setError} /></main></div>;
 
  if (view === 'dashboard') return <div className="app-shell"><Sidebar view={view} onView={setView} onLogout={logout} /><main className="main-content"><header className="topbar"><div className="breadcrumb"><span>Workspace</span><Icon name="arrow" /><strong>Operations insights</strong></div><div className="topbar-actions"><label className="branch-select"><span>Branch</span><select value={selectedBranchId} onChange={(event) => setSelectedBranchId(event.target.value)}>{overview.branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><div className="avatar" title="Linh Nguyễn">LN</div></div></header>{error && <div className="notice notice-error" role="alert"><Icon name="alert" />{error}<button onClick={() => setError('')} aria-label="Đóng lỗi">×</button></div>}<BohDashboardPanel api={api} token={token} branchId={branch.id} onError={setError} /></main></div>;
 
