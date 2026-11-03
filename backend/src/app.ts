@@ -6,7 +6,7 @@ import { AppError, assert, assertPermission } from './platform/errors.js';
 import { createMemoryRepository } from './platform/memory-repository.js';
 import type { Actor, PlatformRepository } from './platform/types.js';
 import { createMemoryOperationsRepository } from './operations/memory-repository.js';
-import type { CreateAssignmentInput, CreateCategoryInput, CreateDailyCountInput, CreateIngredientInput, CreateMenuItemInput, CreateMenuVersionInput, CreateModifierGroupInput, CreatePurchaseOrderInput, CreateRecipeInput, CreateShiftInput, CreateStaffInput, CreateStationAssignmentInput, CreateStockRequestInput, CreateSupplierInput, CreateTaskInput, CreateWastageInput, OperationsRepository, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, TaskCommandInput } from './operations/types.js';
+import type { CreateAssignmentInput, CreateCategoryInput, CreateDailyCountInput, CreateIngredientInput, CreateMenuItemInput, CreateMenuVersionInput, CreateModifierGroupInput, CreatePurchaseOrderInput, CreateRecipeInput, CreateShiftInput, CreateStaffInput, CreateStationAssignmentInput, CreateStockRequestInput, CreateSupplierInput, CreateTaskInput, CreateWastageInput, DashboardFilters, OperationsRepository, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, TaskCommandInput } from './operations/types.js';
 
 type JwtPayload = { sub: string; sid: string };
 
@@ -226,6 +226,41 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   app.post<{ Params: { recipeId: string } }>('/api/v1/recipes/:recipeId/publish', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.publishRecipe(actor(request), request.params.recipeId, request.id), request.id));
 
   app.get<{ Querystring: { branchId: string } }>('/api/v1/boh/workspace', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.getBohWorkspace(actor(request), request.query.branchId), request.id));
+  app.get<{ Querystring: { branchId?: string; from?: string; to?: string; groupBy?: 'branch' | 'ingredient' } }>('/api/v1/dashboard/summary', { preHandler: authenticate }, async (request) => {
+    const currentActor = actor(request);
+    const setup = await repository.getSetupOverview(currentActor);
+    const branchIds = request.query.branchId ? [request.query.branchId] : setup.branches.map((branch) => branch.id);
+    const filters: DashboardFilters = { branchIds, from: request.query.from, to: request.query.to, groupBy: request.query.groupBy ?? 'ingredient' };
+    const report = await operationsRepository.getDashboardReport(currentActor, filters);
+    const audit = await repository.getAuditLogs(currentActor, { branchId: request.query.branchId, limit: 40 });
+
+    return envelope({ ...report, audit }, request.id);
+  });
+  app.get<{ Querystring: { branchId?: string; from?: string; to?: string; groupBy?: 'branch' | 'ingredient' } }>('/api/v1/dashboard/wastage-breakdown', { preHandler: authenticate }, async (request) => {
+    const currentActor = actor(request);
+    const setup = await repository.getSetupOverview(currentActor);
+    const branchIds = request.query.branchId ? [request.query.branchId] : setup.branches.map((branch) => branch.id);
+    const report = await operationsRepository.getDashboardReport(currentActor, { branchIds, from: request.query.from, to: request.query.to, groupBy: request.query.groupBy ?? 'ingredient' });
+
+    return envelope({ asOf: report.asOf, freshness: report.freshness, breakdown: report.wastageBreakdown }, request.id);
+  });
+  app.get<{ Querystring: { branchId?: string } }>('/api/v1/dashboard/low-stock', { preHandler: authenticate }, async (request) => {
+    const currentActor = actor(request);
+    const setup = await repository.getSetupOverview(currentActor);
+    const branchIds = request.query.branchId ? [request.query.branchId] : setup.branches.map((branch) => branch.id);
+    const report = await operationsRepository.getDashboardReport(currentActor, { branchIds });
+
+    return envelope({ asOf: report.asOf, freshness: report.freshness, items: report.lowStock }, request.id);
+  });
+  app.get<{ Querystring: { branchId?: string } }>('/api/v1/reconciliation/inventory', { preHandler: authenticate }, async (request) => {
+    const currentActor = actor(request);
+    const setup = await repository.getSetupOverview(currentActor);
+    const branchIds = request.query.branchId ? [request.query.branchId] : setup.branches.map((branch) => branch.id);
+    const report = await operationsRepository.getDashboardReport(currentActor, { branchIds });
+
+    return envelope({ asOf: report.asOf, freshness: report.freshness, items: report.discrepancies }, request.id);
+  });
+  app.get<{ Querystring: { branchId?: string; entityType?: string; action?: string; limit?: number } }>('/api/v1/audit/logs', { preHandler: authenticate }, async (request) => envelope(await repository.getAuditLogs(actor(request), request.query), request.id));
   app.post<{ Body: CreatePurchaseOrderInput }>('/api/v1/purchase-orders', { preHandler: authenticate, schema: purchaseOrderSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createPurchaseOrder(actor(request), readBody<CreatePurchaseOrderInput>(request), request.id, readIdempotencyKey(request)), request.id)));
   app.post<{ Params: { purchaseOrderId: string; command: 'send' | 'cancel' } }>('/api/v1/purchase-orders/:purchaseOrderId/:command', { preHandler: authenticate }, async (request) => { assert(['send', 'cancel'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported purchase order command');
 

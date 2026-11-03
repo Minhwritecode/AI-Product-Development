@@ -144,7 +144,7 @@ export type GoodsReceiptLine = { ingredientId: string; acceptedQuantity: number;
 
 export type GoodsReceipt = { id: string; branchId: string; purchaseOrderId: string; status: GoodsReceiptStatus; lines: GoodsReceiptLine[]; confirmedAt?: string; createdAt: string };
 
-export type StockBalance = { locationId: string; locationLabel: string; locationKind: 'WAREHOUSE' | 'BRANCH'; ingredientId: string; quantity: number; unit: string; updatedAt: string };
+export type StockBalance = { locationId: string; locationLabel: string; locationKind: 'WAREHOUSE' | 'BRANCH'; branchId?: string; ingredientId: string; quantity: number; reorderPoint?: number; unit: string; updatedAt: string };
 
 export type StockLedgerEntry = { id: string; locationId: string; ingredientId: string; quantityDelta: number; unit: string; eventType: string; sourceType: string; sourceId: string; createdAt: string };
 
@@ -159,6 +159,35 @@ export type DailyCount = { id: string; branchId: string; businessDate: string; s
 export type WastageRecord = { id: string; branchId: string; ingredientId: string; quantity: number; unit: string; reason: string; standardPrice: number; value: number; status: WastageStatus; note?: string; createdAt: string };
 
 export type BohWorkspace = { purchaseOrders: PurchaseOrder[]; receipts: GoodsReceipt[]; stockBalances: StockBalance[]; stockRequests: StockRequest[]; dailyCounts: DailyCount[]; wastage: WastageRecord[]; ledger: StockLedgerEntry[] };
+
+export type DashboardMetric = { value: number; unit: 'COUNT' | 'VND'; sourceCount: number };
+
+export type DashboardLowStock = { locationId: string; ingredientId: string; quantity: number; reorderPoint: number; unit: string; status: 'LOW' | 'OUT' };
+
+export type DashboardDiscrepancy = { locationId: string; ingredientId: string; projectedQuantity: number; ledgerQuantity: number; varianceQuantity: number; unit: string; status: 'MATCHED' | 'MISMATCH' };
+
+export type DashboardAuditLog = { id: string; branchId?: string; actorId?: string; action: string; entityType: string; entityId: string; requestId: string; reason?: string; occurredAt: string };
+
+export type DashboardReport = {
+  asOf: string;
+  freshness: 'FRESH' | 'STALE';
+  branchIds: string[];
+  summary: {
+    stockValue: DashboardMetric;
+    lowStockCount: DashboardMetric;
+    openPurchaseOrders: DashboardMetric;
+    pendingStockRequests: DashboardMetric;
+    varianceValue: DashboardMetric;
+    wastageValue: DashboardMetric;
+    incompleteTheoryCount: DashboardMetric;
+  };
+  lowStock: DashboardLowStock[];
+  discrepancies: DashboardDiscrepancy[];
+  wastageBreakdown: Array<{ key: string; value: number; sourceCount: number }>;
+  audit: DashboardAuditLog[];
+};
+
+export type DashboardFilters = { branchIds: string[]; from?: string; to?: string; groupBy?: 'branch' | 'ingredient' };
 
 export type CreateStaffInput = { branchId: string; displayName: string; email: string; roleCodes: RoleCode[]; stationCodes?: string[]; stationAssignments?: Array<{ roleCode: RoleCode; stationCode: string }> };
 
@@ -221,6 +250,7 @@ export type OperationsRepository = {
   createRecipe(actor: Actor, input: CreateRecipeInput, requestId: string): Promise<RecipeVersion>;
   publishRecipe(actor: Actor, recipeId: string, requestId: string): Promise<RecipeVersion>;
   getBohWorkspace(actor: Actor, branchId: string): Promise<BohWorkspace>;
+  getDashboardReport(actor: Actor, filters: DashboardFilters): Promise<DashboardReport>;
   createPurchaseOrder(actor: Actor, input: CreatePurchaseOrderInput, requestId: string, idempotencyKey: string): Promise<PurchaseOrder>;
   commandPurchaseOrder(actor: Actor, purchaseOrderId: string, command: 'send' | 'cancel', requestId: string, idempotencyKey: string): Promise<PurchaseOrder>;
   confirmGoodsReceipt(actor: Actor, input: ConfirmGoodsReceiptInput, requestId: string, idempotencyKey: string): Promise<GoodsReceipt>;

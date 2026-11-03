@@ -5,6 +5,7 @@ import { AppError, assert, assertBranchScope, assertPermission } from './errors.
 import type {
   Actor,
   Area,
+  AuditLogRecord,
   Branch,
   CreateAreaInput,
   CreateBranchInput,
@@ -240,6 +241,27 @@ export function createPostgresRepository(pool: pg.Pool): PlatformRepository {
         if (error instanceof Error && error.message.includes('restaurant_tables_area_id_label_key')) throw new AppError('CONFLICT', 'Table label already exists in this area', 409);
         throw error;
       }
+    },
+    async getAuditLogs(actor, filters = {}): Promise<AuditLogRecord[]> {
+      if (filters.branchId) assertBranchScope(actor, filters.branchId);
+      const values: unknown[] = [];
+      const clauses: string[] = [];
+
+      if (filters.branchId) { values.push(filters.branchId); clauses.push(`branch_id = $${values.length}`); }
+
+      if (filters.entityType) { values.push(filters.entityType); clauses.push(`entity_type = $${values.length}`); }
+
+      if (filters.action) { values.push(filters.action); clauses.push(`action = $${values.length}`); }
+
+      if (!actor.branchIds.includes('*')) { values.push(actor.branchIds); clauses.push(`branch_id = ANY($${values.length}::text[])`); }
+
+      const limit = Math.min(Math.max(filters.limit ?? 50, 1), 200);
+
+      values.push(limit);
+
+      const result = await pool.query<AuditLogRecord & { branch_id?: string; actor_id?: string; entity_type: string; entity_id: string; request_id: string; occurred_at: string }>(`SELECT id::text, branch_id, actor_id, action, entity_type, entity_id, request_id, reason, occurred_at FROM audit_logs ${clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''} ORDER BY occurred_at DESC LIMIT $${values.length}`, values);
+
+      return result.rows.map((row) => ({ id: row.id, branchId: row.branch_id ?? undefined, actorId: row.actor_id ?? undefined, action: row.action, entityType: row.entity_type, entityId: row.entity_id, requestId: row.request_id, reason: row.reason ?? undefined, occurredAt: row.occurred_at }));
     }
   };
 }
