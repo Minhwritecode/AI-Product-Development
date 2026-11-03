@@ -18,7 +18,7 @@ type MemoryState = {
   areas: Map<string, Area>;
   tables: Map<string, RestaurantTable>;
   revokedSessions: Set<string>;
-  auditEvents: Array<{ id: string; action: string; entityType: string; entityId: string; actorId: string; requestId: string }>;
+  auditEvents: Array<{ id: string; branchId?: string; action: string; entityType: string; entityId: string; actorId: string; requestId: string; occurredAt: string }>;
 };
 
 const demoPassword = hashPassword('luminex-demo', 'luminex-demo-salt');
@@ -167,7 +167,7 @@ export function createMemoryRepository(): PlatformRepository {
 
       state.branches.set(branch.id, branch);
       actor.branchIds.push(branch.id);
-      recordAudit('BRANCH_CREATED', 'BRANCH', branch.id, actor.id, requestId);
+      recordAudit('BRANCH_CREATED', 'BRANCH', branch.id, actor.id, requestId, branch.id);
 
       return branch;
     },
@@ -177,7 +177,7 @@ export function createMemoryRepository(): PlatformRepository {
       const branch = getBranch(branchId);
       const updated = { ...branch, ...input, name: input.name?.trim() ?? branch.name };
       state.branches.set(branchId, updated);
-      recordAudit('BRANCH_UPDATED', 'BRANCH', branchId, actor.id, requestId);
+      recordAudit('BRANCH_UPDATED', 'BRANCH', branchId, actor.id, requestId, branchId);
 
       return updated;
     },
@@ -187,7 +187,7 @@ export function createMemoryRepository(): PlatformRepository {
       assert(input.name.trim().length >= 2, 'VALIDATION_ERROR', 'Area name must be at least 2 characters');
       const area: Area = { id: `area_${randomUUID().slice(0, 8)}`, branchId, name: input.name.trim(), sortOrder: input.sortOrder ?? 1, status: 'ACTIVE' };
       state.areas.set(area.id, area);
-      recordAudit('AREA_CREATED', 'AREA', area.id, actor.id, requestId);
+      recordAudit('AREA_CREATED', 'AREA', area.id, actor.id, requestId, branchId);
 
       return area;
     },
@@ -200,9 +200,20 @@ export function createMemoryRepository(): PlatformRepository {
       assert(![...state.tables.values()].some((table) => table.areaId === areaId && table.label === input.label.trim()), 'CONFLICT', 'Table label already exists in this area', 409);
       const table: RestaurantTable = { id: `table_${randomUUID().slice(0, 8)}`, areaId, label: input.label.trim(), capacity: input.capacity, accessibilityTags: input.accessibilityTags ?? [], status: 'READY' };
       state.tables.set(table.id, table);
-      recordAudit('TABLE_CREATED', 'TABLE', table.id, actor.id, requestId);
+      recordAudit('TABLE_CREATED', 'TABLE', table.id, actor.id, requestId, area.branchId);
 
       return table;
+    },
+    async getAuditLogs(actor, filters = {}) {
+      const limit = Math.min(Math.max(filters.limit ?? 50, 1), 200);
+      const branchFilter = filters.branchId;
+
+      return state.auditEvents
+        .filter((event) => (!filters.action || event.action === filters.action) && (!filters.entityType || event.entityType === filters.entityType))
+        .filter((event) => !branchFilter || event.branchId === branchFilter)
+        .slice(-limit)
+        .reverse()
+        .map((event) => ({ id: event.id, branchId: event.branchId, actorId: event.actorId, action: event.action, entityType: event.entityType, entityId: event.entityId, requestId: event.requestId, occurredAt: event.occurredAt }));
     }
   };
 
@@ -213,8 +224,8 @@ export function createMemoryRepository(): PlatformRepository {
       .map((area) => ({ ...area, tables: [...state.tables.values()].filter((table) => table.areaId === area.id) }));
   }
 
-  function recordAudit(action: string, entityType: string, entityId: string, actorId: string, requestId: string) {
-    state.auditEvents.push({ id: randomUUID(), action, entityType, entityId, actorId, requestId });
+  function recordAudit(action: string, entityType: string, entityId: string, actorId: string, requestId: string, branchId?: string) {
+    state.auditEvents.push({ id: randomUUID(), branchId, action, entityType, entityId, actorId, requestId, occurredAt: new Date().toISOString() });
   }
 
   return repository;

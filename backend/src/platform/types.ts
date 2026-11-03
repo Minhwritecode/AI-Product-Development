@@ -66,6 +66,19 @@ export type PlatformRepository = {
   updateBranch(actor: Actor, branchId: string, input: UpdateBranchInput, requestId: string): Promise<Branch>;
   createArea(actor: Actor, branchId: string, input: CreateAreaInput, requestId: string): Promise<Area>;
   createTable(actor: Actor, areaId: string, input: CreateTableInput, requestId: string): Promise<RestaurantTable>;
+  getAuditLogs(actor: Actor, filters?: { branchId?: string; entityType?: string; action?: string; limit?: number }): Promise<AuditLogRecord[]>;
+};
+
+export type AuditLogRecord = {
+  id: string;
+  branchId?: string;
+  actorId?: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  requestId: string;
+  reason?: string;
+  occurredAt: string;
 };
 
 export type CreateRestaurantInput = {

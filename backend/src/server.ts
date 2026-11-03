@@ -4,6 +4,7 @@ import { loadConfig } from './config.js';
 import { checkDatabase, createPool } from './db/pool.js';
 import { createPostgresRepository } from './platform/postgres-repository.js';
 import { createPostgresOperationsRepository } from './operations/postgres-repository.js';
+import { createPostgresFohRepository } from './foh/postgres-repository.js';
 
 const config = loadConfig();
 
@@ -17,6 +18,7 @@ const pool = config.databaseUrl
 const app = buildApp({
   repository: pool ? createPostgresRepository(pool) : undefined,
   operationsRepository: pool ? createPostgresOperationsRepository(pool) : undefined,
+  fohRepository: pool ? createPostgresFohRepository(pool) : undefined,
   jwtSecret: config.jwtSecret,
   databaseStatus: async () => (pool ? checkDatabase(pool) : 'not-configured')
 });

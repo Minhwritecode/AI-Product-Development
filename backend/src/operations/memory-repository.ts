@@ -37,6 +37,8 @@ import type {
   StockLedgerEntry,
   WastageRecord
 } from './types.js';
+import { buildDashboardReport } from './reporting.js';
+import type { DashboardFilters, DashboardReport } from './types.js';
 
 type AuditEvent = { action: string; entityType: string; entityId: string; actorId: string; requestId: string };
 
@@ -123,7 +125,7 @@ export function createMemoryOperationsRepository(): OperationsRepository {
 
   const balances = new Map<string, StockBalance>([
     ['location_warehouse:ingredient_chicken', { locationId: 'location_warehouse', locationLabel: 'Central warehouse', locationKind: 'WAREHOUSE', ingredientId: 'ingredient_chicken', quantity: 42, unit: 'kg', updatedAt: '2026-10-20T09:00:00+07:00' }],
-    ['location_branch_central:ingredient_chicken', { locationId: 'location_branch_central', locationLabel: 'Central branch store', locationKind: 'BRANCH', ingredientId: 'ingredient_chicken', quantity: 8, unit: 'kg', updatedAt: '2026-10-20T09:00:00+07:00' }]
+    ['location_branch_central:ingredient_chicken', { locationId: 'location_branch_central', locationLabel: 'Central branch store', locationKind: 'BRANCH', branchId: 'branch_central', ingredientId: 'ingredient_chicken', quantity: 8, reorderPoint: 10, unit: 'kg', updatedAt: '2026-10-20T09:00:00+07:00' }]
   ]);
 
   const ledger: StockLedgerEntry[] = [{ id: 'ledger_receipt_1001', locationId: 'location_warehouse', ingredientId: 'ingredient_chicken', quantityDelta: 18, unit: 'kg', eventType: 'GOODS_RECEIPT_CONFIRMED', sourceType: 'GOODS_RECEIPT', sourceId: 'receipt_1001', createdAt: '2026-10-20T09:00:00+07:00' }];
@@ -164,7 +166,7 @@ export function createMemoryOperationsRepository(): OperationsRepository {
 
  return location; }
 
-  function getBalance(locationId: string, ingredientId: string, unit: string): StockBalance { const location = getLocation(locationId); const key = `${locationId}:${ingredientId}`; const balance = balances.get(key) ?? { locationId, locationLabel: location.label, locationKind: location.kind, ingredientId, quantity: 0, unit, updatedAt: new Date().toISOString() }; balances.set(key, balance);
+  function getBalance(locationId: string, ingredientId: string, unit: string): StockBalance { const location = getLocation(locationId); const key = `${locationId}:${ingredientId}`; const balance = balances.get(key) ?? { locationId, locationLabel: location.label, locationKind: location.kind, branchId: location.branchId, ingredientId, quantity: 0, reorderPoint: location.kind === 'BRANCH' ? 0 : undefined, unit, updatedAt: new Date().toISOString() }; balances.set(key, balance);
 
  return balance; }
 
@@ -344,6 +346,14 @@ export function createMemoryOperationsRepository(): OperationsRepository {
       branchCheck(actor, branchId);
 
       return { purchaseOrders: [...purchaseOrders.values()].filter((po) => po.branchId === branchId), receipts: [...receipts.values()].filter((receipt) => receipt.branchId === branchId), stockBalances: [...balances.values()], stockRequests: [...stockRequests.values()], dailyCounts: [...dailyCounts.values()].filter((count) => count.branchId === branchId), wastage: [...wastage.values()].filter((item) => item.branchId === branchId), ledger: [...ledger] };
+    },
+    async getDashboardReport(actor, filters: DashboardFilters): Promise<DashboardReport> {
+      assertPermission(actor, 'dashboard:read');
+      assert(filters.branchIds.length > 0, 'VALIDATION_ERROR', 'At least one branch is required');
+      filters.branchIds.forEach((branchId) => branchCheck(actor, branchId));
+      const workspaces = await Promise.all(filters.branchIds.map((branchId) => repository.getBohWorkspace(actor, branchId)));
+
+      return buildDashboardReport(workspaces, filters);
     },
     async createPurchaseOrder(actor, input: CreatePurchaseOrderInput, requestId, idempotencyKey) {
       managerWrite(actor, 'master-data:write'); branchCheck(actor, input.branchId); assert(input.lines.length > 0, 'VALIDATION_ERROR', 'Purchase order needs at least one line');

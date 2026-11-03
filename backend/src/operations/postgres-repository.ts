@@ -6,8 +6,9 @@ import type {
   CreateAssignmentInput, CreateCategoryInput, CreateIngredientInput, CreateMenuItemInput, CreateMenuVersionInput, CreateModifierGroupInput, CreateRecipeInput, CreateStationAssignmentInput,
   CreateShiftInput, CreateStaffInput, CreateSupplierInput, CreateTaskInput, Ingredient, MasterDataOverview,
   MenuCategory, MenuItem, MenuVersion, ModifierGroup, OperationalTask, OperationsRepository, RecipeLine,
-  RecipeVersion, Shift, ShiftAssignment, StaffProfile, StaffWorkspace, Supplier, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, StationAssignment, UnitDefinition, Allergen, BohWorkspace, CreateDailyCountInput, CreatePurchaseOrderInput, CreateStockRequestInput, CreateWastageInput, DailyCount, GoodsReceipt, PurchaseOrder, StockRequest, WastageRecord, StockBalance, StockLedgerEntry, ConfirmGoodsReceiptInput
+  RecipeVersion, Shift, ShiftAssignment, StaffProfile, StaffWorkspace, Supplier, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, StationAssignment, UnitDefinition, Allergen, BohWorkspace, CreateDailyCountInput, CreatePurchaseOrderInput, CreateStockRequestInput, CreateWastageInput, DailyCount, GoodsReceipt, PurchaseOrder, StockRequest, WastageRecord, StockBalance, StockLedgerEntry, ConfirmGoodsReceiptInput, DashboardFilters, DashboardReport
 } from './types.js';
+import { buildDashboardReport } from './reporting.js';
 
 type Executor = Pick<pg.Pool, 'query'>;
 
@@ -357,7 +358,7 @@ export function createPostgresOperationsRepository(pool: pg.Pool): OperationsRep
         pool.query('SELECT pol.id, pol.purchase_order_id, pol.ingredient_id, pol.ordered_quantity, pol.received_quantity, pol.unit FROM purchase_order_lines pol JOIN purchase_orders po ON po.id = pol.purchase_order_id WHERE po.branch_id = $1', [branchId]),
         pool.query('SELECT id, branch_id, purchase_order_id, status, confirmed_at, created_at FROM goods_receipts WHERE branch_id = $1 ORDER BY created_at DESC', [branchId]),
         pool.query('SELECT grl.goods_receipt_id, grl.ingredient_id, grl.accepted_quantity, grl.damaged_quantity, grl.rejected_quantity, grl.unit, grl.note FROM goods_receipt_lines grl JOIN goods_receipts gr ON gr.id = grl.goods_receipt_id WHERE gr.branch_id = $1', [branchId]),
-        pool.query('SELECT sb.location_id, sl.label AS location_label, sl.kind AS location_kind, sb.ingredient_id, sb.quantity, sb.unit, sb.updated_at FROM stock_balances sb JOIN stock_locations sl ON sl.id = sb.location_id WHERE sl.branch_id = $1 OR sl.kind = \'WAREHOUSE\'', [branchId]),
+        pool.query('SELECT sb.location_id, sl.branch_id, sl.label AS location_label, sl.kind AS location_kind, sb.ingredient_id, sb.quantity, COALESCE(srp.reorder_point, 0) AS reorder_point, sb.unit, sb.updated_at FROM stock_balances sb JOIN stock_locations sl ON sl.id = sb.location_id LEFT JOIN stock_reorder_points srp ON srp.location_id = sb.location_id AND srp.ingredient_id = sb.ingredient_id WHERE sl.branch_id = $1 OR sl.kind = \'WAREHOUSE\'', [branchId]),
         pool.query('SELECT sr.id, sr.from_location_id, sr.to_location_id, sr.status, sr.reason, sr.created_at, sr.updated_at FROM stock_requests sr JOIN stock_locations sl ON sl.id = sr.to_location_id WHERE sl.branch_id = $1 ORDER BY sr.updated_at DESC', [branchId]),
         pool.query('SELECT srl.stock_request_id, srl.ingredient_id, srl.requested_quantity, srl.approved_quantity, srl.shipped_quantity, srl.received_quantity, srl.unit FROM stock_request_lines srl JOIN stock_requests sr ON sr.id = srl.stock_request_id JOIN stock_locations sl ON sl.id = sr.to_location_id WHERE sl.branch_id = $1', [branchId]),
         pool.query('SELECT id, branch_id, business_date, status, submitted_at, created_at FROM daily_counts WHERE branch_id = $1 ORDER BY business_date DESC', [branchId]),
@@ -384,7 +385,7 @@ export function createPostgresOperationsRepository(pool: pg.Pool): OperationsRep
         // SAFETY: Each projection is built only from rows returned by the branch-scoped queries above.
         receipts: receiptRows.rows.map((row) => ({ id: row.id, branchId: row.branch_id, purchaseOrderId: row.purchase_order_id, status: row.status, lines: receiptLines.filter((line) => line.goods_receipt_id === row.id).map((line) => ({ ingredientId: line.ingredient_id, acceptedQuantity: Number(line.accepted_quantity), damagedQuantity: Number(line.damaged_quantity), rejectedQuantity: Number(line.rejected_quantity), unit: line.unit, note: line.note ?? undefined })), confirmedAt: row.confirmed_at ?? undefined, createdAt: row.created_at } as GoodsReceipt)),
         // SAFETY: Each projection is built only from rows returned by the branch-scoped queries above.
-        stockBalances: balanceRows.rows.map((row) => ({ locationId: row.location_id, locationLabel: row.location_label, locationKind: row.location_kind, ingredientId: row.ingredient_id, quantity: Number(row.quantity), unit: row.unit, updatedAt: row.updated_at } as StockBalance)),
+        stockBalances: balanceRows.rows.map((row) => ({ locationId: row.location_id, branchId: row.branch_id ?? undefined, locationLabel: row.location_label, locationKind: row.location_kind, ingredientId: row.ingredient_id, quantity: Number(row.quantity), reorderPoint: Number(row.reorder_point), unit: row.unit, updatedAt: row.updated_at } as StockBalance)),
         // SAFETY: Each projection is built only from rows returned by the branch-scoped queries above.
         stockRequests: requestRows.rows.map((row) => ({ id: row.id, fromLocationId: row.from_location_id, toLocationId: row.to_location_id, status: row.status, reason: row.reason, lines: requestLines.filter((line) => line.stock_request_id === row.id).map((line) => ({ ingredientId: line.ingredient_id, requestedQuantity: Number(line.requested_quantity), approvedQuantity: line.approved_quantity === undefined ? undefined : Number(line.approved_quantity), shippedQuantity: line.shipped_quantity === undefined ? undefined : Number(line.shipped_quantity), receivedQuantity: line.received_quantity === undefined ? undefined : Number(line.received_quantity), unit: line.unit })), createdAt: row.created_at, updatedAt: row.updated_at } as StockRequest)),
         // SAFETY: Each projection is built only from rows returned by the branch-scoped queries above.
@@ -394,6 +395,35 @@ export function createPostgresOperationsRepository(pool: pg.Pool): OperationsRep
         // SAFETY: Each projection is built only from rows returned by the branch-scoped queries above.
         ledger: ledgerRows.rows.map((row) => ({ id: row.id, locationId: row.location_id, ingredientId: row.ingredient_id, quantityDelta: Number(row.quantity_delta), unit: row.unit, eventType: row.event_type, sourceType: row.source_type, sourceId: row.source_id, createdAt: row.created_at } as StockLedgerEntry))
       };
+    },
+    async getDashboardReport(actor, filters: DashboardFilters): Promise<DashboardReport> {
+      assertPermission(actor, 'dashboard:read');
+
+      assert(filters.branchIds.length > 0, 'VALIDATION_ERROR', 'At least one branch is required');
+
+      filters.branchIds.forEach((branchId) => assertBranchScope(actor, branchId));
+
+      const [balanceRows, ledgerRows, purchaseOrderRows, stockRequestRows, wastageRows, countRows, countLineRows] = await Promise.all([
+        pool.query<{ location_id: string; branch_id?: string; location_label: string; location_kind: 'WAREHOUSE' | 'BRANCH'; ingredient_id: string; quantity: NumericRow; reorder_point: NumericRow; unit: string; updated_at: string }>('SELECT sb.location_id, sl.branch_id, sl.label AS location_label, sl.kind AS location_kind, sb.ingredient_id, sb.quantity, COALESCE(srp.reorder_point, 0) AS reorder_point, sb.unit, sb.updated_at FROM stock_balances sb JOIN stock_locations sl ON sl.id = sb.location_id LEFT JOIN stock_reorder_points srp ON srp.location_id = sb.location_id AND srp.ingredient_id = sb.ingredient_id WHERE sl.branch_id = ANY($1::text[])', [filters.branchIds]),
+        pool.query<{ id: string; location_id: string; ingredient_id: string; quantity_delta: NumericRow; unit: string; event_type: string; source_type: string; source_id: string; created_at: string }>('SELECT il.id, il.location_id, il.ingredient_id, il.quantity_delta, il.unit, il.event_type, il.source_type, il.source_id, il.created_at FROM inventory_ledger il JOIN stock_locations sl ON sl.id = il.location_id WHERE sl.branch_id = ANY($1::text[]) ORDER BY il.created_at DESC LIMIT 1000', [filters.branchIds]),
+        pool.query<{ id: string; branch_id: string; supplier_id: string; status: PurchaseOrder['status']; created_at: string; updated_at: string }>('SELECT id, branch_id, supplier_id, status, created_at, updated_at FROM purchase_orders WHERE branch_id = ANY($1::text[])', [filters.branchIds]),
+        pool.query<{ id: string; to_location_id: string; status: StockRequest['status']; reason: string; created_at: string; updated_at: string }>('SELECT sr.id, sr.to_location_id, sr.status, sr.reason, sr.created_at, sr.updated_at FROM stock_requests sr JOIN stock_locations sl ON sl.id = sr.to_location_id WHERE sl.branch_id = ANY($1::text[])', [filters.branchIds]),
+        pool.query<{ id: string; branch_id: string; ingredient_id: string; quantity: NumericRow; unit: string; reason: string; standard_price: NumericRow; value: NumericRow; status: WastageRecord['status']; created_at: string }>('SELECT id, branch_id, ingredient_id, quantity, unit, reason, standard_price, value, status, created_at FROM wastage_records WHERE branch_id = ANY($1::text[])', [filters.branchIds]),
+        pool.query<{ id: string; branch_id: string; business_date: string; status: DailyCount['status']; created_at: string }>('SELECT id, branch_id, business_date, status, created_at FROM daily_counts WHERE branch_id = ANY($1::text[])', [filters.branchIds]),
+        pool.query<{ daily_count_id: string; ingredient_id: string; opening_quantity: NumericRow; received_quantity: NumericRow; theoretical_sold_quantity?: NumericRow; theoretical_sold_status: DailyCount['lines'][number]['theoreticalSoldStatus']; closing_quantity: NumericRow; variance_quantity: NumericRow; unit: string }>('SELECT dcl.daily_count_id, dcl.ingredient_id, dcl.opening_quantity, dcl.received_quantity, dcl.theoretical_sold_quantity, dcl.theoretical_sold_status, dcl.closing_quantity, dcl.variance_quantity, dcl.unit FROM daily_count_lines dcl JOIN daily_counts dc ON dc.id = dcl.daily_count_id WHERE dc.branch_id = ANY($1::text[])', [filters.branchIds])
+      ]);
+
+      const workspace: BohWorkspace = {
+        purchaseOrders: purchaseOrderRows.rows.map((row) => ({ id: row.id, branchId: row.branch_id, supplierId: row.supplier_id, status: row.status, lines: [], createdAt: row.created_at, updatedAt: row.updated_at })),
+        receipts: [],
+        stockBalances: balanceRows.rows.map((row) => ({ locationId: row.location_id, branchId: row.branch_id, locationLabel: row.location_label, locationKind: row.location_kind, ingredientId: row.ingredient_id, quantity: Number(row.quantity), reorderPoint: Number(row.reorder_point), unit: row.unit, updatedAt: row.updated_at })),
+        stockRequests: stockRequestRows.rows.map((row) => ({ id: row.id, fromLocationId: '', toLocationId: row.to_location_id, status: row.status, reason: row.reason, lines: [], createdAt: row.created_at, updatedAt: row.updated_at })),
+        dailyCounts: countRows.rows.map((row) => ({ id: row.id, branchId: row.branch_id, businessDate: row.business_date, status: row.status, lines: countLineRows.rows.filter((line) => line.daily_count_id === row.id).map((line) => ({ ingredientId: line.ingredient_id, openingQuantity: Number(line.opening_quantity), receivedQuantity: Number(line.received_quantity), theoreticalSoldQuantity: line.theoretical_sold_quantity === undefined ? undefined : Number(line.theoretical_sold_quantity), theoreticalSoldStatus: line.theoretical_sold_status, closingQuantity: Number(line.closing_quantity), varianceQuantity: Number(line.variance_quantity), unit: line.unit })), createdAt: row.created_at })),
+        wastage: wastageRows.rows.map((row) => ({ id: row.id, branchId: row.branch_id, ingredientId: row.ingredient_id, quantity: Number(row.quantity), unit: row.unit, reason: row.reason, standardPrice: Number(row.standard_price), value: Number(row.value), status: row.status, createdAt: row.created_at })),
+        ledger: ledgerRows.rows.map((row) => ({ id: row.id, locationId: row.location_id, ingredientId: row.ingredient_id, quantityDelta: Number(row.quantity_delta), unit: row.unit, eventType: row.event_type, sourceType: row.source_type, sourceId: row.source_id, createdAt: row.created_at }))
+      };
+
+      return buildDashboardReport([workspace], filters);
     },
     async createPurchaseOrder(actor, input: CreatePurchaseOrderInput, requestId, idempotencyKey) {
       write(actor); assertBranchScope(actor, input.branchId); assert(input.lines.length > 0, 'VALIDATION_ERROR', 'Purchase order needs at least one line'); const rid = restaurantId(actor);
