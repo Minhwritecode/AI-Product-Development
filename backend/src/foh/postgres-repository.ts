@@ -76,6 +76,8 @@ export function createPostgresFohRepository(pool: pg.Pool): FohRepository {
       if (previous) return previous;
 
       return transaction(async (client) => {
+        await client.query('SELECT id FROM branches WHERE id = $1 AND status = \'ACTIVE\' FOR UPDATE', [input.branchId]);
+
         const current = await status(input.branchId, client);
 
         assert(current.operatingState === 'OPEN', 'QUEUE_NOT_OPEN', 'Queue is not accepting guests', 409);
