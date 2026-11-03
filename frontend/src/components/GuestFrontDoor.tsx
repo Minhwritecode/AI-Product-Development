@@ -180,7 +180,7 @@ export function GuestFrontDoor({ api, branchId }: Props) {
           {error && <p className="guest-error" role="alert">{error}</p>}
           <button className="guest-primary" disabled={submitting || Boolean(closed)}>{submitting ? (isVi ? 'Đang ghi nhận…' : 'Joining…') : closed ? (isVi ? 'Hiện chưa nhận khách' : 'Not accepting guests') : (isVi ? 'Vào hàng chờ' : 'Join the queue')}<span aria-hidden="true">→</span></button>
         </form>
-        <p className="guest-note">{status?.estimatedWait.min === 0 ? (isVi ? 'Có bàn hiện tại; Host sẽ xác nhận chỗ phù hợp.' : 'Tables may be available; the Host confirms the best fit.') : `${isVi ? 'Thời gian chờ dự kiến' : 'Estimated wait'}: ${status?.estimatedWait.min}–${status?.estimatedWait.max} ${isVi ? 'phút' : 'min'} · ${status?.confidence.toLowerCase()} confidence.`}</p>
+        <p className="guest-note">{status ? status.estimatedWait.min === 0 ? (isVi ? 'Có bàn hiện tại; Host sẽ xác nhận chỗ phù hợp.' : 'Tables may be available; the Host confirms the best fit.') : `${isVi ? 'Thời gian chờ dự kiến' : 'Estimated wait'}: ${status.estimatedWait.min}–${status.estimatedWait.max} ${isVi ? 'phút' : 'min'} · ${status.confidence.toLowerCase()} confidence.` : (isVi ? 'Chưa có dữ liệu; thử cập nhật lại.' : 'No availability data yet; try again.')}</p>
       </>}
     </>}
   </section></main>;

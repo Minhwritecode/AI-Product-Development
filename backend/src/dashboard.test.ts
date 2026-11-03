@@ -12,6 +12,9 @@ describe('week 7 dashboard and reconciliation', () => {
     expect(dashboard.statusCode).toBe(200);
     expect(dashboard.json().data.freshness).toBe('STALE');
     expect(dashboard.json().data.sourceUpdatedAt).toEqual(expect.any(String));
+    expect(dashboard.json().data.summary.stockValue).toMatchObject({ value: 0, unit: 'NOT_AVAILABLE', sourceCount: 0 });
+    expect(dashboard.json().data.summary.varianceValue.unit).toBe('STOCK_UNITS');
+    expect(dashboard.json().data.branchSummaries).toEqual(expect.arrayContaining([expect.objectContaining({ branchId: 'branch_central' })]));
     expect(dashboard.json().data.lowStock).toEqual(expect.arrayContaining([expect.objectContaining({ ingredientId: 'ingredient_chicken', status: 'LOW' })]));
     expect(dashboard.json().data.summary.incompleteTheoryCount.value).toBe(0);
 
