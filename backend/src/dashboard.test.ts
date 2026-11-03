@@ -10,7 +10,8 @@ describe('week 7 dashboard and reconciliation', () => {
 
     const dashboard = await app.inject({ method: 'GET', url: '/api/v1/dashboard/summary?branchId=branch_central', headers });
     expect(dashboard.statusCode).toBe(200);
-    expect(dashboard.json().data.freshness).toBe('FRESH');
+    expect(dashboard.json().data.freshness).toBe('STALE');
+    expect(dashboard.json().data.sourceUpdatedAt).toEqual(expect.any(String));
     expect(dashboard.json().data.lowStock).toEqual(expect.arrayContaining([expect.objectContaining({ ingredientId: 'ingredient_chicken', status: 'LOW' })]));
     expect(dashboard.json().data.summary.incompleteTheoryCount.value).toBe(0);
 

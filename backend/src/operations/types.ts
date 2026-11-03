@@ -160,7 +160,7 @@ export type WastageRecord = { id: string; branchId: string; ingredientId: string
 
 export type BohWorkspace = { purchaseOrders: PurchaseOrder[]; receipts: GoodsReceipt[]; stockBalances: StockBalance[]; stockRequests: StockRequest[]; dailyCounts: DailyCount[]; wastage: WastageRecord[]; ledger: StockLedgerEntry[] };
 
-export type DashboardMetric = { value: number; unit: 'COUNT' | 'VND'; sourceCount: number };
+export type DashboardMetric = { value: number; unit: 'COUNT' | 'VND' | 'STOCK_UNITS' | 'NOT_AVAILABLE'; sourceCount: number };
 
 export type DashboardLowStock = { locationId: string; ingredientId: string; quantity: number; reorderPoint: number; unit: string; status: 'LOW' | 'OUT' };
 
@@ -168,10 +168,14 @@ export type DashboardDiscrepancy = { locationId: string; ingredientId: string; p
 
 export type DashboardAuditLog = { id: string; branchId?: string; actorId?: string; action: string; entityType: string; entityId: string; requestId: string; reason?: string; occurredAt: string };
 
+export type DashboardBranchSummary = { branchId: string; lowStockCount: number; openPurchaseOrders: number; pendingStockRequests: number; incompleteTheoryCount: number; sourceCount: number };
+
 export type DashboardReport = {
   asOf: string;
+  sourceUpdatedAt: string | null;
   freshness: 'FRESH' | 'STALE';
   branchIds: string[];
+  branchSummaries: DashboardBranchSummary[];
   summary: {
     stockValue: DashboardMetric;
     lowStockCount: DashboardMetric;

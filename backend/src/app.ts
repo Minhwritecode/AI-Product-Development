@@ -240,13 +240,13 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   app.post<{ Params: { recipeId: string } }>('/api/v1/recipes/:recipeId/publish', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.publishRecipe(actor(request), request.params.recipeId, request.id), request.id));
 
   app.get<{ Querystring: { branchId: string } }>('/api/v1/boh/workspace', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.getBohWorkspace(actor(request), request.query.branchId), request.id));
-  app.get<{ Querystring: { branchId?: string; from?: string; to?: string; groupBy?: 'branch' | 'ingredient' } }>('/api/v1/dashboard/summary', { preHandler: authenticate }, async (request) => {
+  app.get<{ Querystring: { branchId?: string; branchIds?: string; from?: string; to?: string; groupBy?: 'branch' | 'ingredient' } }>('/api/v1/dashboard/summary', { preHandler: authenticate }, async (request) => {
     const currentActor = actor(request);
     const setup = await repository.getSetupOverview(currentActor);
-    const branchIds = request.query.branchId ? [request.query.branchId] : setup.branches.map((branch) => branch.id);
+    const branchIds = request.query.branchIds ? request.query.branchIds.split(',').map((branchId) => branchId.trim()).filter(Boolean) : request.query.branchId ? [request.query.branchId] : setup.branches.map((branch) => branch.id);
     const filters: DashboardFilters = { branchIds, from: request.query.from, to: request.query.to, groupBy: request.query.groupBy ?? 'ingredient' };
     const report = await operationsRepository.getDashboardReport(currentActor, filters);
-    const audit = await repository.getAuditLogs(currentActor, { branchId: request.query.branchId, limit: 40 });
+    const audit = await repository.getAuditLogs(currentActor, { branchId: branchIds.length === 1 ? branchIds[0] : undefined, limit: 40 });
 
     return envelope({ ...report, audit }, request.id);
   });

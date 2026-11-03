@@ -1,5 +1,5 @@
 import type { AuditLogRecord } from '../platform/types.js';
-import type { BohWorkspace, DashboardDiscrepancy, DashboardFilters, DashboardLowStock, DashboardReport } from './types.js';
+import type { BohWorkspace, DashboardBranchSummary, DashboardDiscrepancy, DashboardFilters, DashboardLowStock, DashboardReport } from './types.js';
 
 const now = () => new Date().toISOString();
 
@@ -28,19 +28,51 @@ export function buildDashboardReport(workspaces: BohWorkspace[], filters: Dashbo
     wastageMap.set(key, current);
   });
   const incompleteTheoryCount = workspaces.flatMap((workspace) => workspace.dailyCounts).reduce((count, item) => count + item.lines.filter((line) => line.theoreticalSoldStatus !== 'AVAILABLE').length, 0);
-  const sourceCount = Math.max(scoped.length, 1);
+
+  const sourceDates = workspaces.flatMap((workspace) => [
+    ...workspace.stockBalances.map((balance) => balance.updatedAt),
+    ...workspace.purchaseOrders.map((order) => order.updatedAt),
+    ...workspace.stockRequests.map((request) => request.updatedAt),
+    ...workspace.dailyCounts.map((count) => count.createdAt),
+    ...workspace.wastage.map((record) => record.createdAt),
+    ...workspace.ledger.map((entry) => entry.createdAt)
+  ]).reduce<number[]>((dates, value) => {
+    const parsed = Date.parse(value);
+
+    if (Number.isFinite(parsed)) dates.push(parsed);
+
+    return dates;
+  }, []);
+
+  const sourceUpdatedAt = sourceDates.length ? new Date(Math.max(...sourceDates)).toISOString() : null;
+
+  const freshness = sourceUpdatedAt && Date.now() - Date.parse(sourceUpdatedAt) <= 5 * 60_000 ? 'FRESH' as const : 'STALE' as const;
+
+  const branchSummaries: DashboardBranchSummary[] = branchIds.map((branchId) => {
+    const branchBalances = scoped.filter((balance) => balance.branchId === branchId);
+    const branchWorkspaces = workspaces.filter((workspace) => workspace.purchaseOrders.some((order) => order.branchId === branchId) || workspace.dailyCounts.some((count) => count.branchId === branchId) || workspace.wastage.some((record) => record.branchId === branchId) || branchBalances.some((balance) => balance.branchId === branchId));
+    const branchLowStock = branchBalances.filter((balance) => balance.quantity <= (balance.reorderPoint ?? 0)).length;
+    const branchOrders = branchWorkspaces.flatMap((workspace) => workspace.purchaseOrders).filter((order) => order.branchId === branchId);
+    const branchRequests = branchWorkspaces.flatMap((workspace) => workspace.stockRequests).filter((request) => request.toLocationId.includes(branchId));
+    const branchTheory = branchWorkspaces.flatMap((workspace) => workspace.dailyCounts).filter((count) => count.branchId === branchId).reduce((count, item) => count + item.lines.filter((line) => line.theoreticalSoldStatus !== 'AVAILABLE').length, 0);
+
+    return { branchId, lowStockCount: branchLowStock, openPurchaseOrders: branchOrders.filter((order) => ['DRAFT', 'SENT', 'PARTIALLY_RECEIVED'].includes(order.status)).length, pendingStockRequests: branchRequests.filter((request) => ['REQUESTED', 'APPROVED', 'IN_TRANSIT'].includes(request.status)).length, incompleteTheoryCount: branchTheory, sourceCount: branchBalances.length };
+  });
+
   const asOf = now();
 
   return {
     asOf,
-    freshness: 'FRESH',
+    sourceUpdatedAt,
+    freshness,
     branchIds,
+    branchSummaries,
     summary: {
-      stockValue: { value: 0, unit: 'VND', sourceCount },
+      stockValue: { value: 0, unit: 'NOT_AVAILABLE', sourceCount: 0 },
       lowStockCount: { value: lowStock.length, unit: 'COUNT', sourceCount: lowStock.length },
       openPurchaseOrders: { value: workspaces.flatMap((workspace) => workspace.purchaseOrders).filter((order) => ['DRAFT', 'SENT', 'PARTIALLY_RECEIVED'].includes(order.status)).length, unit: 'COUNT', sourceCount: workspaces.flatMap((workspace) => workspace.purchaseOrders).length },
       pendingStockRequests: { value: workspaces.flatMap((workspace) => workspace.stockRequests).filter((request) => ['REQUESTED', 'APPROVED', 'IN_TRANSIT'].includes(request.status)).length, unit: 'COUNT', sourceCount: workspaces.flatMap((workspace) => workspace.stockRequests).length },
-      varianceValue: { value: discrepancies.filter((item) => item.status === 'MISMATCH').reduce((total, item) => total + Math.abs(item.varianceQuantity), 0), unit: 'VND', sourceCount: discrepancies.length },
+      varianceValue: { value: discrepancies.filter((item) => item.status === 'MISMATCH').reduce((total, item) => total + Math.abs(item.varianceQuantity), 0), unit: 'STOCK_UNITS', sourceCount: discrepancies.length },
       wastageValue: { value: allWastage.reduce((total, item) => total + item.value, 0), unit: 'VND', sourceCount: allWastage.length },
       incompleteTheoryCount: { value: incompleteTheoryCount, unit: 'COUNT', sourceCount: incompleteTheoryCount }
     },
