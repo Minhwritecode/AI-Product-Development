@@ -6,6 +6,8 @@ import { AppError, assert, assertPermission } from './platform/errors.js';
 import { createMemoryRepository } from './platform/memory-repository.js';
 import type { Actor, PlatformRepository } from './platform/types.js';
 import { createMemoryOperationsRepository } from './operations/memory-repository.js';
+import { createMemoryFohRepository } from './foh/memory-repository.js';
+import type { CreateQueueInput, CreateReservationInput, FohRepository } from './foh/types.js';
 import type { CreateAssignmentInput, CreateCategoryInput, CreateDailyCountInput, CreateIngredientInput, CreateMenuItemInput, CreateMenuVersionInput, CreateModifierGroupInput, CreatePurchaseOrderInput, CreateRecipeInput, CreateShiftInput, CreateStaffInput, CreateStationAssignmentInput, CreateStockRequestInput, CreateSupplierInput, CreateTaskInput, CreateWastageInput, DashboardFilters, OperationsRepository, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, TaskCommandInput } from './operations/types.js';
 
 type JwtPayload = { sub: string; sid: string };
@@ -13,6 +15,7 @@ type JwtPayload = { sub: string; sid: string };
 type AppOptions = {
   repository?: PlatformRepository;
   operationsRepository?: OperationsRepository;
+  fohRepository?: FohRepository;
   jwtSecret?: string;
   databaseStatus?: () => Promise<'ok' | 'unavailable' | 'not-configured'>;
 };
@@ -95,6 +98,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true, requestIdHeader: 'x-request-id' });
   const repository = options.repository ?? createMemoryRepository();
   const operationsRepository = options.operationsRepository ?? createMemoryOperationsRepository();
+  const fohRepository = options.fohRepository ?? createMemoryFohRepository();
   const jwtSecret = options.jwtSecret ?? process.env.JWT_SECRET ?? 'luminex-local-development-secret';
 
   app.register(cors, { origin: true });
@@ -261,6 +265,19 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     return envelope({ asOf: report.asOf, freshness: report.freshness, items: report.discrepancies }, request.id);
   });
   app.get<{ Querystring: { branchId?: string; entityType?: string; action?: string; limit?: number } }>('/api/v1/audit/logs', { preHandler: authenticate }, async (request) => envelope(await repository.getAuditLogs(actor(request), request.query), request.id));
+  app.get<{ Querystring: { branchId: string } }>('/api/v1/guest/front-door/status', async (request) => envelope(await fohRepository.getFrontDoorStatus(request.query.branchId), request.id));
+  app.post<{ Body: CreateQueueInput }>('/api/v1/guest/queues', { schema: { body: { type: 'object', required: ['branchId', 'partySize', 'timeBudgetMinutes', 'language'], properties: { branchId: { type: 'string' }, partySize: { type: 'integer', minimum: 1, maximum: 20 }, timeBudgetMinutes: { type: 'integer', minimum: 15, maximum: 180 }, language: { type: 'string', enum: ['vi', 'en'] }, nickname: { type: 'string', maxLength: 60 }, notificationOptIn: { type: 'boolean' }, contact: { type: 'string', maxLength: 160 } }, additionalProperties: false } } }, async (request, reply) => reply.code(201).send(envelope(await fohRepository.joinQueue(request.body, readIdempotencyKey(request)), request.id)));
+  app.get<{ Params: { queueId: string }; Querystring: { accessToken: string } }>('/api/v1/guest/queues/:queueId', async (request) => envelope(await fohRepository.getQueueEntry(request.params.queueId, request.query.accessToken), request.id));
+  app.post<{ Params: { queueId: string }; Querystring: { accessToken: string } }>('/api/v1/guest/queues/:queueId/leave', async (request) => envelope(await fohRepository.leaveQueue(request.params.queueId, request.query.accessToken, readIdempotencyKey(request)), request.id));
+  app.get<{ Querystring: { branchId: string } }>('/api/v1/foh/queues', { preHandler: authenticate }, async (request) => envelope(await fohRepository.listQueue(actor(request), request.query.branchId), request.id));
+  app.post<{ Params: { queueId: string; command: 'call' | 'seat' | 'cancel' | 'expire' }; Body: { reason?: string } }>('/api/v1/foh/queues/:queueId/:command', { preHandler: authenticate }, async (request) => { assert(['call', 'seat', 'cancel', 'expire'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported queue command');
+
+ return envelope(await fohRepository.commandQueue(actor(request), request.params.queueId, request.params.command, request.id, readBody<{ reason?: string }>(request).reason), request.id); });
+  app.patch<{ Params: { branchId: string }; Body: { state: 'OPEN' | 'PAUSED' | 'FULL' | 'CLOSED'; reason: string } }>('/api/v1/branches/:branchId/operating-state', { preHandler: authenticate }, async (request) => envelope(await fohRepository.setOperatingState(actor(request), request.params.branchId, request.body.state, request.body.reason, request.id), request.id));
+  app.post<{ Body: CreateReservationInput }>('/api/v1/reservations', { preHandler: authenticate }, async (request, reply) => reply.code(201).send(envelope(await fohRepository.createReservation(actor(request), request.body, readIdempotencyKey(request), request.id), request.id)));
+  app.post<{ Params: { reservationId: string; command: 'confirm' | 'arrive' | 'cancel' | 'no-show' } }>('/api/v1/reservations/:reservationId/:command', { preHandler: authenticate }, async (request) => { assert(['confirm', 'arrive', 'cancel', 'no-show'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported reservation command');
+
+ return envelope(await fohRepository.commandReservation(actor(request), request.params.reservationId, request.params.command, readIdempotencyKey(request), request.id), request.id); });
   app.post<{ Body: CreatePurchaseOrderInput }>('/api/v1/purchase-orders', { preHandler: authenticate, schema: purchaseOrderSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createPurchaseOrder(actor(request), readBody<CreatePurchaseOrderInput>(request), request.id, readIdempotencyKey(request)), request.id)));
   app.post<{ Params: { purchaseOrderId: string; command: 'send' | 'cancel' } }>('/api/v1/purchase-orders/:purchaseOrderId/:command', { preHandler: authenticate }, async (request) => { assert(['send', 'cancel'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported purchase order command');
 
