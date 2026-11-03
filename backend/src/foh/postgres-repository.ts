@@ -6,7 +6,7 @@ import type { CreateQueueInput, FohRepository, FrontDoorStatus, OperatingState, 
 
 type QueueRow = { id: string; branch_id: string; queue_code: string; status: QueueEntry['status']; party_size: number; time_budget_minutes: number; language: QueueEntry['language']; nickname?: string; notification_opt_in: boolean; created_at: string; called_at?: string; completed_at?: string };
 
-type ReservationRow = { id: string; branch_id: string; status: Reservation['status']; party_size: number; reserved_for: string; hold_until?: string; language: Reservation['language']; nickname?: string; created_at: string; updated_at: string };
+type ReservationRow = { id: string; branch_id: string; status: Reservation['status']; party_size: number; reserved_for: string; duration_minutes: number; hold_until?: string; language: Reservation['language']; nickname?: string; created_at: string; updated_at: string };
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 
@@ -44,8 +44,10 @@ export function createPostgresFohRepository(pool: pg.Pool): FohRepository {
   }
 
   function mapReservation(row: ReservationRow): Reservation {
-    return { id: row.id, branchId: row.branch_id, status: row.status, partySize: row.party_size, reservedFor: row.reserved_for, holdUntil: row.hold_until ?? undefined, language: row.language, nickname: row.nickname ?? undefined, createdAt: row.created_at, updatedAt: row.updated_at };
+    return { id: row.id, branchId: row.branch_id, status: row.status, partySize: row.party_size, reservedFor: row.reserved_for, durationMinutes: row.duration_minutes, holdUntil: row.hold_until ?? undefined, language: row.language, nickname: row.nickname ?? undefined, createdAt: row.created_at, updatedAt: row.updated_at };
   }
+
+  const reservationSelect = 'id, branch_id, status, party_size, reserved_for, duration_minutes, hold_until, language, nickname, created_at, updated_at';
 
   async function status(branchId: string, executor: Pick<pg.Pool, 'query'> = pool): Promise<FrontDoorStatus> {
     const [branch, operating, policy, queue, tables] = await Promise.all([
@@ -83,11 +85,12 @@ export function createPostgresFohRepository(pool: pg.Pool): FohRepository {
         assert(current.operatingState === 'OPEN', 'QUEUE_NOT_OPEN', 'Queue is not accepting guests', 409);
         assert(input.partySize >= 1 && input.partySize <= 20, 'VALIDATION_ERROR', 'Party size must be between 1 and 20');
         assert(input.timeBudgetMinutes >= 15 && input.timeBudgetMinutes <= 180, 'VALIDATION_ERROR', 'Time budget must be between 15 and 180 minutes');
+        assert(!input.notificationOptIn || Boolean(input.contact?.trim()), 'VALIDATION_ERROR', 'Contact is required when notifications are enabled');
         assert(current.queueSize < current.queueCapacity, 'QUEUE_FULL', 'Queue is full', 409);
         const accessToken = randomUUID();
         const id = `queue_${randomUUID().slice(0, 8)}`;
         const code = `L${Math.floor(Math.random() * 900 + 100)}`;
-        const result = await client.query<QueueRow>('INSERT INTO queue_entries (id, branch_id, queue_code, access_token_hash, party_size, time_budget_minutes, language, nickname, notification_opt_in) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, branch_id, queue_code, status, party_size, time_budget_minutes, language, nickname, notification_opt_in, created_at, called_at, completed_at', [id, input.branchId, code, hash(accessToken), input.partySize, input.timeBudgetMinutes, input.language, input.nickname?.trim() || null, input.notificationOptIn ?? false]);
+        const result = await client.query<QueueRow>('INSERT INTO queue_entries (id, branch_id, queue_code, access_token_hash, party_size, time_budget_minutes, language, nickname, notification_opt_in, notification_contact) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, branch_id, queue_code, status, party_size, time_budget_minutes, language, nickname, notification_opt_in, created_at, called_at, completed_at', [id, input.branchId, code, hash(accessToken), input.partySize, input.timeBudgetMinutes, input.language, input.nickname?.trim() || null, input.notificationOptIn ?? false, input.contact?.trim() || null]);
         const response = mapQueue(result.rows[0], accessToken);
 
         await remember(client, idempotencyKey, 'QUEUE_JOIN', response);
@@ -131,6 +134,15 @@ export function createPostgresFohRepository(pool: pg.Pool): FohRepository {
       return result.rows.map((row) => mapQueue(row, ''));
     },
 
+    async listReservations(actor, branchId, date) {
+      assertPermission(actor, 'reservation:read');
+      assertBranchScope(actor, branchId);
+      await pool.query('UPDATE reservations SET status = \'EXPIRED\', updated_at = now() WHERE branch_id = $1 AND status = \'HELD\' AND hold_until IS NOT NULL AND hold_until <= now()', [branchId]);
+      const result = await pool.query<ReservationRow>(`SELECT ${reservationSelect} FROM reservations WHERE branch_id = $1 AND ($2::date IS NULL OR reserved_for >= $2::date AND reserved_for < ($2::date + interval '1 day')) ORDER BY reserved_for ASC`, [branchId, date ?? null]);
+
+      return result.rows.map(mapReservation);
+    },
+
     async commandQueue(actor, queueId, command, requestId, reason) {
       assertPermission(actor, 'queue:write');
 
@@ -139,6 +151,7 @@ export function createPostgresFohRepository(pool: pg.Pool): FohRepository {
 
         assert(result.rowCount, 'NOT_FOUND', 'Queue entry not found', 404);
         assertBranchScope(actor, result.rows[0].branch_id);
+        assert(command !== 'cancel' || Boolean(reason?.trim()), 'VALIDATION_ERROR', 'Cancellation reason is required');
         const allowed: Record<typeof command, QueueEntry['status']> = { call: 'CALLED', seat: 'SEATED', cancel: 'CANCELLED', expire: 'EXPIRED' };
         assert((command === 'call' && result.rows[0].status === 'WAITING') || (command === 'seat' && result.rows[0].status === 'CALLED') || (command === 'cancel' && ['WAITING', 'CALLED'].includes(result.rows[0].status)) || (command === 'expire' && ['WAITING', 'CALLED'].includes(result.rows[0].status)), 'CONFLICT', 'Queue entry cannot transition from this state', 409);
         const updated = await client.query<QueueRow>(`UPDATE queue_entries SET status = $2, called_at = CASE WHEN $2 = 'CALLED' THEN now() ELSE called_at END, completed_at = CASE WHEN $2 IN ('SEATED', 'CANCELLED', 'EXPIRED') THEN now() ELSE completed_at END WHERE id = $1 RETURNING id, branch_id, queue_code, status, party_size, time_budget_minutes, language, nickname, notification_opt_in, created_at, called_at, completed_at`, [queueId, allowed[command]]);
@@ -159,8 +172,18 @@ export function createPostgresFohRepository(pool: pg.Pool): FohRepository {
       if (previous) return previous;
 
       return transaction(async (client) => {
+        const branch = await client.query('SELECT id FROM branches WHERE id = $1 AND status = \'ACTIVE\' FOR UPDATE', [input.branchId]);
+        assert(branch.rowCount, 'NOT_FOUND', 'Branch not found', 404);
+        await client.query('UPDATE reservations SET status = \'EXPIRED\', updated_at = now() WHERE branch_id = $1 AND status = \'HELD\' AND hold_until IS NOT NULL AND hold_until <= now()', [input.branchId]);
+        const policy = await client.query<{ slot_minutes: number; hold_minutes: number }>('SELECT slot_minutes, hold_minutes FROM reservation_policies WHERE branch_id = $1', [input.branchId]);
+        const durationMinutes = input.durationMinutes ?? Number(policy.rows[0]?.slot_minutes ?? 90);
+        assert(durationMinutes >= 15 && durationMinutes <= 360, 'VALIDATION_ERROR', 'Reservation duration must be between 15 and 360 minutes');
+        const capacity = await client.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM restaurant_tables rt JOIN areas a ON a.id = rt.area_id WHERE a.branch_id = $1 AND rt.status = \'READY\'', [input.branchId]);
+        const overlapping = await client.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM reservations WHERE branch_id = $1 AND status IN (\'HELD\', \'CONFIRMED\', \'ARRIVED\') AND reserved_for < ($2::timestamptz + ($3 * interval \'1 minute\')) AND (reserved_for + (duration_minutes * interval \'1 minute\')) > $2::timestamptz', [input.branchId, input.reservedFor, durationMinutes]);
+        assert(Number(overlapping.rows[0]?.count ?? 0) < Math.max(Number(capacity.rows[0]?.count ?? 0), 1), 'RESERVATION_UNAVAILABLE', 'No reservation capacity for this time', 409);
         const id = `reservation_${randomUUID().slice(0, 8)}`;
-        const result = await client.query<ReservationRow>('INSERT INTO reservations (id, branch_id, party_size, reserved_for, language, nickname) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, branch_id, status, party_size, reserved_for, hold_until, language, nickname, created_at, updated_at', [id, input.branchId, input.partySize, input.reservedFor, input.language, input.nickname?.trim() || null]);
+        const holdMinutes = Number(policy.rows[0]?.hold_minutes ?? 10);
+        const result = await client.query<ReservationRow>(`INSERT INTO reservations (id, branch_id, party_size, reserved_for, duration_minutes, hold_until, language, nickname) VALUES ($1, $2, $3, $4, $5, now() + ($6 * interval '1 minute'), $7, $8) RETURNING ${reservationSelect}`, [id, input.branchId, input.partySize, input.reservedFor, durationMinutes, holdMinutes, input.language, input.nickname?.trim() || null]);
 
         await client.query('INSERT INTO audit_logs (branch_id, actor_id, action, entity_type, entity_id, request_id) VALUES ($1, $2, $3, $4, $5, $6)', [input.branchId, actor.id, 'RESERVATION_CREATED', 'RESERVATION', id, requestId]);
         const response = mapReservation(result.rows[0]);
@@ -178,15 +201,21 @@ export function createPostgresFohRepository(pool: pg.Pool): FohRepository {
       if (previous) return previous;
 
       return transaction(async (client) => {
-        const current = await client.query<ReservationRow>('SELECT id, branch_id, status, party_size, reserved_for, hold_until, language, nickname, created_at, updated_at FROM reservations WHERE id = $1 FOR UPDATE', [reservationId]);
+        const current = await client.query<ReservationRow>(`SELECT ${reservationSelect} FROM reservations WHERE id = $1 FOR UPDATE`, [reservationId]);
 
         assert(current.rowCount, 'NOT_FOUND', 'Reservation not found', 404);
         assertBranchScope(actor, current.rows[0].branch_id);
+
+        if (current.rows[0].status === 'HELD' && current.rows[0].hold_until && Date.parse(current.rows[0].hold_until) <= Date.now()) {
+          await client.query('UPDATE reservations SET status = \'EXPIRED\', updated_at = now() WHERE id = $1', [reservationId]);
+          current.rows[0].status = 'EXPIRED';
+        }
+
         const next: Record<typeof command, Reservation['status']> = { confirm: 'CONFIRMED', arrive: 'ARRIVED', cancel: 'CANCELLED', 'no-show': 'NO_SHOW' };
         const allowed: Record<Reservation['status'], Reservation['status'][]> = { HELD: ['CONFIRMED', 'CANCELLED'], CONFIRMED: ['ARRIVED', 'CANCELLED', 'NO_SHOW'], ARRIVED: [], CANCELLED: [], NO_SHOW: [], EXPIRED: [] };
 
         assert(allowed[current.rows[0].status].includes(next[command]), 'CONFLICT', 'Reservation cannot transition from this state', 409);
-        const updated = await client.query<ReservationRow>('UPDATE reservations SET status = $2, updated_at = now() WHERE id = $1 RETURNING id, branch_id, status, party_size, reserved_for, hold_until, language, nickname, created_at, updated_at', [reservationId, next[command]]);
+        const updated = await client.query<ReservationRow>(`UPDATE reservations SET status = $2, updated_at = now() WHERE id = $1 RETURNING ${reservationSelect}`, [reservationId, next[command]]);
 
         await client.query('INSERT INTO audit_logs (branch_id, actor_id, action, entity_type, entity_id, request_id) VALUES ($1, $2, $3, $4, $5, $6)', [current.rows[0].branch_id, actor.id, `RESERVATION_${command.toUpperCase()}`, 'RESERVATION', reservationId, requestId]);
         const response = mapReservation(updated.rows[0]);

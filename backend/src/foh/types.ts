@@ -14,11 +14,11 @@ export type FrontDoorStatus = { branchId: string; operatingState: OperatingState
 
 export type QueueEntry = { id: string; branchId: string; queueCode: string; accessToken: string; status: QueueEntryStatus; partySize: number; timeBudgetMinutes: number; language: GuestLanguage; nickname?: string; notificationOptIn: boolean; createdAt: string; calledAt?: string; completedAt?: string };
 
-export type Reservation = { id: string; branchId: string; status: ReservationStatus; partySize: number; reservedFor: string; holdUntil?: string; language: GuestLanguage; nickname?: string; createdAt: string; updatedAt: string };
+export type Reservation = { id: string; branchId: string; status: ReservationStatus; partySize: number; reservedFor: string; durationMinutes: number; holdUntil?: string; language: GuestLanguage; nickname?: string; createdAt: string; updatedAt: string };
 
 export type CreateQueueInput = { branchId: string; partySize: number; timeBudgetMinutes: number; language: GuestLanguage; nickname?: string; notificationOptIn?: boolean; contact?: string };
 
-export type CreateReservationInput = { branchId: string; partySize: number; reservedFor: string; language: GuestLanguage; nickname?: string };
+export type CreateReservationInput = { branchId: string; partySize: number; reservedFor: string; durationMinutes?: number; language: GuestLanguage; nickname?: string };
 
 export type FohRepository = {
   getFrontDoorStatus(branchId: string): Promise<FrontDoorStatus>;
@@ -27,6 +27,7 @@ export type FohRepository = {
   leaveQueue(queueId: string, accessToken: string, idempotencyKey: string): Promise<QueueEntry>;
   listQueue(actor: Actor, branchId: string): Promise<QueueEntry[]>;
   commandQueue(actor: Actor, queueId: string, command: 'call' | 'seat' | 'cancel' | 'expire', requestId: string, reason?: string): Promise<QueueEntry>;
+  listReservations(actor: Actor, branchId: string, date?: string): Promise<Reservation[]>;
   createReservation(actor: Actor, input: CreateReservationInput, idempotencyKey: string, requestId: string): Promise<Reservation>;
   commandReservation(actor: Actor, reservationId: string, command: 'confirm' | 'arrive' | 'cancel' | 'no-show', idempotencyKey: string, requestId: string): Promise<Reservation>;
   setOperatingState(actor: Actor, branchId: string, state: OperatingState, reason: string, requestId: string): Promise<FrontDoorStatus>;

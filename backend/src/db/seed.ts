@@ -25,7 +25,11 @@ try {
     ('staff:write', 'Manage branch staff'),
     ('shift:write', 'Manage shifts and assignments'),
     ('task:write', 'Manage operational tasks'),
-    ('master-data:write', 'Manage restaurant master data')
+    ('master-data:write', 'Manage restaurant master data'),
+    ('queue:read', 'Read FOH queue'),
+    ('queue:write', 'Manage FOH queue and operating state'),
+    ('reservation:read', 'Read branch reservations'),
+    ('reservation:write', 'Manage branch reservations')
     ON CONFLICT DO NOTHING`);
   await pool.query(`INSERT INTO role_permissions (role_code, permission_code)
     SELECT 'OWNER', code FROM permissions ON CONFLICT DO NOTHING`);

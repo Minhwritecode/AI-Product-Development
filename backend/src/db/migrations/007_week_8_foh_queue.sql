@@ -33,6 +33,13 @@ CREATE TABLE IF NOT EXISTS queue_entries (
   UNIQUE (branch_id, queue_code)
 );
 
+CREATE TABLE IF NOT EXISTS reservation_policies (
+  branch_id TEXT PRIMARY KEY REFERENCES branches(id),
+  slot_minutes INTEGER NOT NULL DEFAULT 90 CHECK (slot_minutes BETWEEN 15 AND 360),
+  hold_minutes INTEGER NOT NULL DEFAULT 10 CHECK (hold_minutes BETWEEN 1 AND 60),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS guest_idempotency_records (
   idempotency_key TEXT PRIMARY KEY,
   command TEXT NOT NULL,
@@ -46,12 +53,16 @@ CREATE TABLE IF NOT EXISTS reservations (
   status TEXT NOT NULL DEFAULT 'HELD' CHECK (status IN ('HELD', 'CONFIRMED', 'ARRIVED', 'CANCELLED', 'NO_SHOW', 'EXPIRED')),
   party_size INTEGER NOT NULL CHECK (party_size > 0),
   reserved_for TIMESTAMPTZ NOT NULL,
+  duration_minutes INTEGER NOT NULL DEFAULT 90 CHECK (duration_minutes BETWEEN 15 AND 360),
   hold_until TIMESTAMPTZ,
   language TEXT NOT NULL CHECK (language IN ('vi', 'en')),
   nickname TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS duration_minutes INTEGER NOT NULL DEFAULT 90 CHECK (duration_minutes BETWEEN 15 AND 360);
+ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS notification_contact TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_queue_entries_branch_status ON queue_entries(branch_id, status, created_at);
 CREATE INDEX IF NOT EXISTS idx_reservations_branch_time ON reservations(branch_id, reserved_for, status);
