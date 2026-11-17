@@ -9,6 +9,8 @@ import { createMemoryOperationsRepository } from './operations/memory-repository
 import { createMemoryFohRepository } from './foh/memory-repository.js';
 import { createMemoryFloorRepository } from './floor/memory-repository.js';
 import type { FloorRepository, ServiceSession } from './floor/types.js';
+import { createMemoryOrderRepository } from './order/memory-repository.js';
+import type { OrderRepository } from './order/types.js';
 import type { CreateQueueInput, CreateReservationInput, FohRepository } from './foh/types.js';
 import type { CreateAssignmentInput, CreateCategoryInput, CreateDailyCountInput, CreateIngredientInput, CreateMenuItemInput, CreateMenuVersionInput, CreateModifierGroupInput, CreatePurchaseOrderInput, CreateRecipeInput, CreateShiftInput, CreateStaffInput, CreateStationAssignmentInput, CreateStockRequestInput, CreateSupplierInput, CreateTaskInput, CreateWastageInput, DashboardFilters, OperationsRepository, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, TaskCommandInput } from './operations/types.js';
 
@@ -19,6 +21,7 @@ type AppOptions = {
   operationsRepository?: OperationsRepository;
   fohRepository?: FohRepository;
   floorRepository?: FloorRepository;
+  orderRepository?: OrderRepository;
   jwtSecret?: string;
   databaseStatus?: () => Promise<'ok' | 'unavailable' | 'not-configured'>;
 };
@@ -113,6 +116,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   const operationsRepository = options.operationsRepository ?? createMemoryOperationsRepository();
   const fohRepository = options.fohRepository ?? createMemoryFohRepository();
   const floorRepository = options.floorRepository ?? createMemoryFloorRepository();
+  const orderRepository = options.orderRepository ?? createMemoryOrderRepository();
   const jwtSecret = options.jwtSecret ?? process.env.JWT_SECRET ?? 'luminex-local-development-secret';
 
   app.register(cors, { origin: true });
@@ -296,6 +300,8 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   app.post<{ Params: { sessionId: string }; Body: { tableId: string } }>('/api/v1/service-sessions/:sessionId/transfer', { preHandler: authenticate }, async (request) => envelope(await floorRepository.transfer(actor(request), request.params.sessionId, request.body.tableId, readIdempotencyKey(request), request.id), request.id));
   app.post<{ Params: { taskId: string } }>('/api/v1/cleaning-tasks/:taskId/claim', { preHandler: authenticate }, async (request) => envelope(await floorRepository.claimCleaning(actor(request), request.params.taskId, readIdempotencyKey(request), request.id), request.id));
   app.post<{ Params: { taskId: string } }>('/api/v1/cleaning-tasks/:taskId/complete', { preHandler: authenticate }, async (request) => envelope(await floorRepository.completeCleaning(actor(request), request.params.taskId, readIdempotencyKey(request), request.id), request.id));
+  app.post<{ Params: { sessionId: string }; Body: { branchId: string; coursePolicy: 'AS_READY' | 'SERVE_TOGETHER'; lines: Array<{ menuItemId: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string }> } }>('/api/v1/service-sessions/:sessionId/orders', { preHandler: authenticate }, async (request, reply) => reply.code(201).send(envelope(await orderRepository.createDraft(actor(request), { ...request.body, serviceSessionId: request.params.sessionId }, readIdempotencyKey(request), request.id), request.id)));
+  app.post<{ Params: { orderId: string } }>('/api/v1/orders/:orderId/send', { preHandler: authenticate }, async (request) => envelope(await orderRepository.send(actor(request), request.params.orderId, readIdempotencyKey(request), request.id), request.id));
   app.post<{ Body: CreateReservationInput }>('/api/v1/reservations', { preHandler: authenticate, schema: reservationSchema }, async (request, reply) => reply.code(201).send(envelope(await fohRepository.createReservation(actor(request), readBody<CreateReservationInput>(request), readIdempotencyKey(request), request.id), request.id)));
   app.post<{ Params: { reservationId: string; command: 'confirm' | 'arrive' | 'cancel' | 'no-show' } }>('/api/v1/reservations/:reservationId/:command', { preHandler: authenticate }, async (request) => { assert(['confirm', 'arrive', 'cancel', 'no-show'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported reservation command');
 

@@ -6,6 +6,7 @@ import { createPostgresRepository } from './platform/postgres-repository.js';
 import { createPostgresOperationsRepository } from './operations/postgres-repository.js';
 import { createPostgresFohRepository } from './foh/postgres-repository.js';
 import { createPostgresFloorRepository } from './floor/postgres-repository.js';
+import { createPostgresOrderRepository } from './order/postgres-repository.js';
 
 const config = loadConfig();
 
@@ -21,6 +22,7 @@ const app = buildApp({
   operationsRepository: pool ? createPostgresOperationsRepository(pool) : undefined,
   fohRepository: pool ? createPostgresFohRepository(pool) : undefined,
   floorRepository: pool ? createPostgresFloorRepository(pool) : undefined,
+  orderRepository: pool ? createPostgresOrderRepository(pool) : undefined,
   jwtSecret: config.jwtSecret,
   databaseStatus: async () => (pool ? checkDatabase(pool) : 'not-configured')
 });
