@@ -14,9 +14,20 @@ export function createMemoryFloorRepository(): FloorRepository {
   const replay = new Map<string, ServiceSession | CleaningTask>();
   const holds = new Map<string, { id: string; tableId: string; expiresAt: string }>();
 
+  function releaseExpiredHolds() {
+    for (const [key, hold] of holds) {
+      if (new Date(hold.expiresAt).getTime() > Date.now()) continue;
+      const table = tables.get(hold.tableId);
+
+      if (table?.status === 'HELD') table.status = 'READY';
+      holds.delete(key);
+    }
+  }
+
   return {
     async board(actor, branchId) {
       assertPermission(actor, 'queue:read'); assertBranchScope(actor, branchId);
+      releaseExpiredHolds();
 
       return { tables: [...tables.values()], sessions: [...sessions.values()].filter((item) => item.branchId === branchId), cleaningTasks: [...tasks.values()].filter((item) => item.branchId === branchId), asOf: new Date().toISOString() };
     },
@@ -35,15 +46,19 @@ export function createMemoryFloorRepository(): FloorRepository {
     },
     async seat(actor, input, key) {
       assertPermission(actor, 'queue:write'); assertBranchScope(actor, input.branchId);
+      releaseExpiredHolds();
       const prior = replay.get(`seat:${key}`);
 
       if (prior && 'openedAt' in prior) return prior;
       const table = tables.get(input.tableId);
-      assert(table && table.status === 'READY', 'TABLE_NOT_READY', 'Table is not ready', 409);
+      assert(table && (table.status === 'READY' || table.status === 'HELD'), 'TABLE_NOT_READY', 'Table is not ready', 409);
       assert(input.partySize <= table.capacity, 'CAPACITY_EXCEEDED', 'Party does not fit this table', 409);
       assert(input.sourceType === 'WALK_IN' || Boolean(input.sourceId), 'VALIDATION_ERROR', 'Source ID is required');
       const session: ServiceSession = { id: `service_${randomUUID()}`, branchId: input.branchId, tableId: table.id, partySize: input.partySize, status: 'ACTIVE', sourceType: input.sourceType, sourceId: input.sourceId, openedBy: actor.id, openedAt: new Date().toISOString() };
-      table.status = 'IN_USE'; sessions.set(session.id, session); replay.set(`seat:${key}`, session);
+      table.status = 'IN_USE';
+
+      for (const [holdKey, hold] of holds) if (hold.tableId === table.id) holds.delete(holdKey);
+      sessions.set(session.id, session); replay.set(`seat:${key}`, session);
 
       return session;
     },
@@ -72,8 +87,13 @@ export function createMemoryFloorRepository(): FloorRepository {
       assert(current.partySize <= target.capacity, 'CAPACITY_EXCEEDED', 'Party does not fit this table', 409);
       const source = tables.get(current.tableId);
 
- if (source) source.status = 'WAITING_CLEANING';
+      if (source) source.status = 'WAITING_CLEANING';
       target.status = 'IN_USE'; current.tableId = target.id; replay.set(`transfer:${key}`, current);
+
+      if (source) {
+        const taskId = `clean_${randomUUID()}`;
+        tasks.set(taskId, { id: taskId, branchId: current.branchId, tableId: source.id, sessionId, status: 'OPEN', priority: 'NORMAL', createdAt: new Date().toISOString() });
+      }
 
  return current;
     },
