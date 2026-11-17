@@ -6,10 +6,11 @@ export type Order = { id: string; branchId: string; serviceSessionId: string; st
 
 export type GuestMenu = { branchId: string; tableId: string; tableLabel: string; serviceSessionId: string; items: Array<{ id: string; name: string; description: string; price: number; currency: string; allergenCodes: string[]; stationCode: 'KITCHEN' | 'BAR' }> };
 
-export type FohRequest = { id: string; branchId: string; serviceSessionId: string; status: 'SUBMITTED' | 'ACKNOWLEDGED' | 'REJECTED' | 'COMPLETED'; lines: OrderLineInput[]; createdAt: string };
+export type FohRequest = { id: string; branchId: string; serviceSessionId: string; status: 'SUBMITTED' | 'ACKNOWLEDGED' | 'REJECTED' | 'COMPLETED'; lines: OrderLineInput[]; orderId?: string; createdAt: string };
 
 export type OrderRepository = {
   createDraft(actor: Actor, input: { branchId: string; serviceSessionId: string; coursePolicy: Order['coursePolicy']; lines: OrderLineInput[] }, key: string, requestId: string): Promise<Order>;
+  updateDraft(actor: Actor, orderId: string, input: { coursePolicy: Order['coursePolicy']; lines: OrderLineInput[] }, key: string, requestId: string): Promise<Order>;
   send(actor: Actor, orderId: string, key: string, requestId: string): Promise<Order>;
   issueTableToken(actor: Actor, tableId: string, requestId: string): Promise<{ token: string; expiresAt: string }>;
   guestMenu(token: string): Promise<GuestMenu>;

@@ -6,8 +6,8 @@ import { issueTableToken, verifyTableToken } from './table-token.js';
 export function createMemoryOrderRepository(): OrderRepository {
   const orders = new Map<string, Order>();
   const replay = new Map<string, Order>();
-  const menu = new Map([['menu_demo_chicken', { itemName: 'Gà nướng thảo mộc', unitPrice: 189000, currency: 'VND', stationCode: 'KITCHEN' as const, status: 'PUBLISHED' }], ['menu_demo_coffee', { itemName: 'Cà phê sữa', unitPrice: 49000, currency: 'VND', stationCode: 'BAR' as const, status: 'PUBLISHED' }]]);
-  const requests = new Map<string, { id: string; branchId: string; serviceSessionId: string; status: 'SUBMITTED' | 'ACKNOWLEDGED' | 'REJECTED' | 'COMPLETED'; lines: import('./types.js').OrderLineInput[]; createdAt: string }>();
+  const menu = new Map([['item_chicken', { itemName: 'Gà nướng thảo mộc', unitPrice: 185000, currency: 'VND', stationCode: 'KITCHEN' as const, status: 'PUBLISHED' }], ['item_coffee', { itemName: 'Cà phê sữa', unitPrice: 55000, currency: 'VND', stationCode: 'BAR' as const, status: 'PUBLISHED' }]]);
+  const requests = new Map<string, { id: string; branchId: string; serviceSessionId: string; status: 'SUBMITTED' | 'ACKNOWLEDGED' | 'REJECTED' | 'COMPLETED'; lines: import('./types.js').OrderLineInput[]; orderId?: string; createdAt: string }>();
   const table = { id: 'table_02', branchId: 'branch_central', label: 'T02', version: 1, serviceSessionId: 'service_demo' };
   const secret = 'luminex-local-development-secret';
 
@@ -30,6 +30,22 @@ export function createMemoryOrderRepository(): OrderRepository {
       orders.set(order.id, order); replay.set(key, order);
 
  return order;
+    },
+    async updateDraft(actor, orderId, input, key) {
+      assertPermission(actor, 'queue:write'); const prior = replay.get(key);
+
+      if (prior) return prior;
+      const order = orders.get(orderId); assert(order, 'NOT_FOUND', 'Order not found', 404); assertBranchScope(actor, order.branchId); assert(order.status === 'DRAFT', 'CONFLICT', 'Only draft orders can be changed', 409);
+      assert(input.lines.length > 0, 'VALIDATION_ERROR', 'At least one order line is required');
+      order.coursePolicy = input.coursePolicy;
+      order.lines = input.lines.map((line) => {
+        const item = menu.get(line.menuItemId); assert(item?.status === 'PUBLISHED', 'ITEM_UNAVAILABLE', 'Menu item is unavailable', 409); assert(Number.isInteger(line.quantity) && line.quantity > 0, 'VALIDATION_ERROR', 'Quantity must be a positive integer');
+
+        return { ...line, modifierOptionIds: [...new Set(line.modifierOptionIds ?? [])], itemName: item.itemName, unitPrice: item.unitPrice, currency: item.currency, stationCode: item.stationCode };
+      });
+      replay.set(key, order);
+
+      return order;
     },
     async send(actor, orderId, key) { assertPermission(actor, 'queue:write'); const prior = replay.get(key);
 
@@ -59,8 +75,21 @@ export function createMemoryOrderRepository(): OrderRepository {
     async listRequests(actor, branchId) { assertPermission(actor, 'queue:read'); assertBranchScope(actor, branchId);
 
  return [...requests.values()].filter((request) => request.branchId === branchId); },
-    async commandRequest(actor, requestId, command) { assertPermission(actor, 'queue:write'); const request = requests.get(requestId); assert(request, 'NOT_FOUND', 'FOH request not found', 404); assertBranchScope(actor, request.branchId); assert(request.status === 'SUBMITTED' || command === 'complete' && request.status === 'ACKNOWLEDGED', 'CONFLICT', 'Request cannot transition', 409); request.status = command === 'acknowledge' ? 'ACKNOWLEDGED' : command === 'reject' ? 'REJECTED' : 'COMPLETED';
+    async commandRequest(actor, requestId, command, key, auditRequestId) {
+      assertPermission(actor, 'queue:write');
+      const request = requests.get(requestId);
+      assert(request, 'NOT_FOUND', 'FOH request not found', 404);
+      assertBranchScope(actor, request.branchId);
+      assert(request.status === 'SUBMITTED' || command === 'complete' && request.status === 'ACKNOWLEDGED', 'CONFLICT', 'Request cannot transition', 409);
 
- return request; }
+      if (command === 'acknowledge') {
+        const order = await this.createDraft(actor, { branchId: request.branchId, serviceSessionId: request.serviceSessionId, coursePolicy: 'AS_READY', lines: request.lines }, `foh-ack:${key}`, auditRequestId);
+        request.orderId = order.id;
+      }
+
+      request.status = command === 'acknowledge' ? 'ACKNOWLEDGED' : command === 'reject' ? 'REJECTED' : 'COMPLETED';
+
+      return request;
+    }
   };
 }
