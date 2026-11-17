@@ -59,9 +59,20 @@ export function createPostgresFloorRepository(pool: pg.Pool): FloorRepository {
     await client.query('INSERT INTO audit_logs(branch_id,actor_id,action,entity_type,entity_id,request_id) VALUES($1,$2,$3,$4,$5,$6)', [branchId, actorId, action, kind, id, requestId]);
   }
 
+  async function releaseExpiredHolds(executor: pg.Pool | pg.PoolClient) {
+    await executor.query("WITH expired AS (DELETE FROM table_holds WHERE expires_at <= now() RETURNING table_id) UPDATE restaurant_tables SET status='READY' WHERE id IN (SELECT table_id FROM expired) AND status='HELD'");
+  }
+
+  async function cleaningPriority(client: pg.PoolClient, branchId: string): Promise<CleaningTask['priority']> {
+    const waiting = await client.query<{ present: boolean }>("SELECT EXISTS(SELECT 1 FROM queue_entries WHERE branch_id=$1 AND status IN ('WAITING','CALLED')) AS present", [branchId]);
+
+    return waiting.rows[0]?.present ? 'HIGH' : 'NORMAL';
+  }
+
   return {
     async board(actor, branchId) {
       assertPermission(actor, 'queue:read'); assertBranchScope(actor, branchId);
+      await releaseExpiredHolds(pool);
 
       const [tableRows, sessions, tasks] = await Promise.all([
         pool.query<Row>('SELECT t.* FROM restaurant_tables t JOIN areas a ON a.id=t.area_id WHERE a.branch_id=$1 ORDER BY a.sort_order,t.label', [branchId]),
@@ -77,7 +88,7 @@ export function createPostgresFloorRepository(pool: pg.Pool): FloorRepository {
       assert(input.minutes >= 1 && input.minutes <= 30, 'VALIDATION_ERROR', 'Hold must be 1 to 30 minutes');
 
       return transact(key, 'TABLE_HOLD', async (client) => {
-        await client.query('DELETE FROM table_holds WHERE expires_at <= now()');
+        await releaseExpiredHolds(client);
         const found = await client.query<Row>('SELECT t.* FROM restaurant_tables t JOIN areas a ON a.id=t.area_id WHERE t.id=$1 AND a.branch_id=$2 FOR UPDATE OF t', [input.tableId, input.branchId]);
         assert(found.rowCount && found.rows[0].status === 'READY', 'TABLE_NOT_READY', 'Table is not ready', 409);
         assert(input.partySize <= Number(found.rows[0].capacity), 'CAPACITY_EXCEEDED', 'Party does not fit this table', 409);
@@ -96,10 +107,11 @@ export function createPostgresFloorRepository(pool: pg.Pool): FloorRepository {
       return transact(key, 'FLOOR_SEAT', async (client) => {
         const found = await client.query<Row>('SELECT t.* FROM restaurant_tables t JOIN areas a ON a.id=t.area_id WHERE t.id=$1 AND a.branch_id=$2 FOR UPDATE OF t', [input.tableId, input.branchId]);
         assert(found.rowCount, 'NOT_FOUND', 'Table not found', 404);
-        const table = found.rows[0]; assert(table.status === 'READY', 'TABLE_NOT_READY', 'Table is not ready', 409);
+        const table = found.rows[0]; assert(table.status === 'READY' || table.status === 'HELD', 'TABLE_NOT_READY', 'Table is not ready', 409);
         assert(input.partySize <= Number(table.capacity), 'CAPACITY_EXCEEDED', 'Party does not fit this table', 409);
         const id = `service_${randomUUID()}`;
         const created = await client.query<Row>('INSERT INTO service_sessions(id,branch_id,table_id,party_size,source_type,source_id,opened_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *', [id,input.branchId,input.tableId,input.partySize,input.sourceType,input.sourceId ?? null,actor.id]);
+        await client.query('DELETE FROM table_holds WHERE table_id=$1', [input.tableId]);
         await client.query('UPDATE restaurant_tables SET status=$2 WHERE id=$1', [input.tableId,'IN_USE']);
         await audit(client,actor.id,input.branchId,'SEAT','SERVICE_SESSION',id,requestId);
 
@@ -117,7 +129,7 @@ export function createPostgresFloorRepository(pool: pg.Pool): FloorRepository {
         await client.query('UPDATE service_sessions SET status=$2,closed_at=now() WHERE id=$1',[sessionId,'CLOSED']);
         await client.query('UPDATE restaurant_tables SET status=$2 WHERE id=$1',[tableId,'WAITING_CLEANING']);
         const id = `clean_${randomUUID()}`;
-        const created = await client.query<Row>('INSERT INTO cleaning_tasks(id,branch_id,table_id,session_id) VALUES($1,$2,$3,$4) RETURNING *',[id,branchId,tableId,sessionId]);
+        const created = await client.query<Row>('INSERT INTO cleaning_tasks(id,branch_id,table_id,session_id,priority) VALUES($1,$2,$3,$4,$5) RETURNING *',[id,branchId,tableId,sessionId,await cleaningPriority(client, branchId)]);
         await audit(client,actor.id,branchId,'VACATE','SERVICE_SESSION',sessionId,requestId);
 
         return task(created.rows[0]);
@@ -136,6 +148,8 @@ export function createPostgresFloorRepository(pool: pg.Pool): FloorRepository {
         await client.query('UPDATE restaurant_tables SET status=$2 WHERE id=$1', [active.table_id,'WAITING_CLEANING']);
         await client.query('UPDATE restaurant_tables SET status=$2 WHERE id=$1', [tableId,'IN_USE']);
         const updated = await client.query<Row>('UPDATE service_sessions SET table_id=$2 WHERE id=$1 RETURNING *', [sessionId,tableId]);
+        const cleaningId = `clean_${randomUUID()}`;
+        await client.query('INSERT INTO cleaning_tasks(id,branch_id,table_id,session_id,priority) VALUES($1,$2,$3,$4,$5)', [cleaningId,active.branch_id,active.table_id,sessionId,await cleaningPriority(client, active.branch_id)]);
         await audit(client,actor.id,active.branch_id,'TRANSFER','SERVICE_SESSION',sessionId,requestId);
 
  return session(updated.rows[0]);

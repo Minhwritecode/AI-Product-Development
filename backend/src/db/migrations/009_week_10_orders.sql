@@ -11,6 +11,18 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS idx_orders_session_status ON orders(service_session_id, status, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS ticket_snapshots (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(id),
+  branch_id TEXT NOT NULL REFERENCES branches(id),
+  station_code TEXT NOT NULL CHECK (station_code IN ('KITCHEN', 'BAR')),
+  status TEXT NOT NULL DEFAULT 'NEW' CHECK (status IN ('NEW', 'ACCEPTED', 'IN_PROGRESS', 'READY', 'SERVED', 'CANCELLED')),
+  snapshot JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (order_id, station_code)
+);
+CREATE INDEX IF NOT EXISTS idx_ticket_snapshots_branch_station_status ON ticket_snapshots(branch_id, station_code, status, created_at);
+
 CREATE TABLE IF NOT EXISTS order_lines (
   id TEXT PRIMARY KEY,
   order_id TEXT NOT NULL REFERENCES orders(id),
@@ -33,5 +45,11 @@ CREATE TABLE IF NOT EXISTS foh_requests (
   payload JSONB NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   acknowledged_by TEXT REFERENCES users(id),
-  acknowledged_at TIMESTAMPTZ
+  acknowledged_at TIMESTAMPTZ,
+  order_id TEXT REFERENCES orders(id)
 );
+CREATE INDEX IF NOT EXISTS idx_foh_requests_branch_status ON foh_requests(branch_id, status, created_at DESC);
+
+ALTER TABLE foh_requests ADD COLUMN IF NOT EXISTS order_id TEXT REFERENCES orders(id);
+
+ALTER TABLE restaurant_tables ADD COLUMN IF NOT EXISTS qr_token_version INTEGER NOT NULL DEFAULT 1;

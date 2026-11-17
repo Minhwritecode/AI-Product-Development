@@ -22,7 +22,7 @@ const app = buildApp({
   operationsRepository: pool ? createPostgresOperationsRepository(pool) : undefined,
   fohRepository: pool ? createPostgresFohRepository(pool) : undefined,
   floorRepository: pool ? createPostgresFloorRepository(pool) : undefined,
-  orderRepository: pool ? createPostgresOrderRepository(pool) : undefined,
+  orderRepository: pool ? createPostgresOrderRepository(pool, config.jwtSecret) : undefined,
   jwtSecret: config.jwtSecret,
   databaseStatus: async () => (pool ? checkDatabase(pool) : 'not-configured')
 });
