@@ -35,3 +35,6 @@ CREATE TABLE IF NOT EXISTS foh_requests (
   acknowledged_by TEXT REFERENCES users(id),
   acknowledged_at TIMESTAMPTZ
 );
+CREATE INDEX IF NOT EXISTS idx_foh_requests_branch_status ON foh_requests(branch_id, status, created_at DESC);
+
+ALTER TABLE restaurant_tables ADD COLUMN IF NOT EXISTS qr_token_version INTEGER NOT NULL DEFAULT 1;

@@ -2,12 +2,13 @@ import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { assert, assertBranchScope, assertPermission } from '../platform/errors.js';
 import type { Order, OrderRepository } from './types.js';
+import { issueTableToken, verifyTableToken } from './table-token.js';
 
 type OrderRow = { id: string; branch_id: string; service_session_id: string; status: Order['status']; round_number: number; course_policy: Order['coursePolicy'] };
 
 type ItemRow = { id: string; name: string; price: string; currency: string; station_code: 'KITCHEN' | 'BAR'; status: string };
 
-export function createPostgresOrderRepository(pool: pg.Pool): OrderRepository {
+export function createPostgresOrderRepository(pool: pg.Pool, tokenSecret = 'luminex-local-development-secret'): OrderRepository {
   async function transaction<T>(key: string, command: string, work: (client: pg.PoolClient) => Promise<T>): Promise<T> {
     const client = await pool.connect();
 
@@ -71,6 +72,58 @@ export function createPostgresOrderRepository(pool: pg.Pool): OrderRepository {
         await client.query('INSERT INTO audit_logs(branch_id,actor_id,action,entity_type,entity_id,request_id) VALUES($1,$2,$3,$4,$5,$6)', [found.rows[0].branch_id,actor.id,'ORDER_SENT','ORDER',orderId,requestId]);
 
         return readOrder(client, orderId);
+      });
+    }
+    ,
+    async issueTableToken(actor, tableId) {
+      assertPermission(actor, 'queue:write');
+      const found = await pool.query<{ branch_id: string; qr_token_version: number }>('SELECT a.branch_id,t.qr_token_version FROM restaurant_tables t JOIN areas a ON a.id=t.area_id WHERE t.id=$1', [tableId]);
+      assert(found.rowCount, 'NOT_FOUND', 'Table not found', 404); assertBranchScope(actor, found.rows[0].branch_id);
+      const expiresAt = new Date(Date.now() + 8 * 60 * 60_000);
+
+      return { token: issueTableToken({ tableId, branchId: found.rows[0].branch_id, version: found.rows[0].qr_token_version, expiresAt: expiresAt.getTime() }, tokenSecret), expiresAt: expiresAt.toISOString() };
+    },
+    async guestMenu(token) {
+      const payload = verifyTableToken(token, tokenSecret);
+      const table = await pool.query<{ id: string; label: string; qr_token_version: number }>('SELECT t.id,t.label,t.qr_token_version FROM restaurant_tables t JOIN areas a ON a.id=t.area_id WHERE t.id=$1 AND a.branch_id=$2', [payload.tableId,payload.branchId]);
+      assert(table.rowCount && table.rows[0].qr_token_version === payload.version, 'UNAUTHENTICATED', 'Table QR is invalid', 401);
+      const session = await pool.query<{ id: string }>('SELECT id FROM service_sessions WHERE table_id=$1 AND branch_id=$2 AND status=$3', [payload.tableId,payload.branchId,'ACTIVE']);
+      assert(session.rowCount, 'CONFLICT', 'There is no active table session', 409);
+      const items = await pool.query<{ id: string; name: string; description: string; price: string; currency: string; allergen_codes: string[]; station_code: 'KITCHEN' | 'BAR' }>('SELECT mi.id,mi.name,mi.description,mi.price,mi.currency,mi.allergen_codes,mi.station_code FROM menu_items mi JOIN branches b ON b.restaurant_id=mi.restaurant_id WHERE b.id=$1 AND mi.status=$2 ORDER BY mi.name', [payload.branchId,'PUBLISHED']);
+
+      return { branchId: payload.branchId, tableId: payload.tableId, tableLabel: table.rows[0].label, serviceSessionId: session.rows[0].id, items: items.rows.map((item) => ({ id: item.id, name: item.name, description: item.description, price: Number(item.price), currency: item.currency, allergenCodes: item.allergen_codes, stationCode: item.station_code })) };
+    },
+    async submitGuestRequest(token, lines, key) {
+      assert(lines.length > 0, 'VALIDATION_ERROR', 'At least one request line is required');
+      const guest = await this.guestMenu(token);
+
+      return transaction(key, 'GUEST_ADD_ON', async (client) => {
+        const id = `request_${randomUUID()}`;
+        const created = await client.query<{ id: string; branch_id: string; service_session_id: string; status: 'SUBMITTED'; payload: { lines: import('./types.js').OrderLineInput[] }; created_at: Date }>('INSERT INTO foh_requests(id,branch_id,service_session_id,payload) VALUES($1,$2,$3,$4) RETURNING id,branch_id,service_session_id,status,payload,created_at', [id,guest.branchId,guest.serviceSessionId,JSON.stringify({ lines })]);
+        const row = created.rows[0];
+
+ return { id: row.id, branchId: row.branch_id, serviceSessionId: row.service_session_id, status: row.status, lines: row.payload.lines, createdAt: row.created_at.toISOString() };
+      });
+    },
+    async listRequests(actor, branchId) {
+      assertPermission(actor, 'queue:read'); assertBranchScope(actor, branchId);
+      const rows = await pool.query<{ id: string; branch_id: string; service_session_id: string; status: 'SUBMITTED' | 'ACKNOWLEDGED' | 'REJECTED' | 'COMPLETED'; payload: { lines: import('./types.js').OrderLineInput[] }; created_at: Date }>('SELECT id,branch_id,service_session_id,status,payload,created_at FROM foh_requests WHERE branch_id=$1 ORDER BY created_at DESC', [branchId]);
+
+      return rows.rows.map((row) => ({ id: row.id, branchId: row.branch_id, serviceSessionId: row.service_session_id, status: row.status, lines: row.payload.lines, createdAt: row.created_at.toISOString() }));
+    },
+    async commandRequest(actor, requestId, command, key, auditRequestId) {
+      assertPermission(actor, 'queue:write');
+
+      return transaction(key, `FOH_REQUEST_${command.toUpperCase()}`, async (client) => {
+        const found = await client.query<{ id: string; branch_id: string; service_session_id: string; status: 'SUBMITTED' | 'ACKNOWLEDGED' | 'REJECTED' | 'COMPLETED'; payload: { lines: import('./types.js').OrderLineInput[] }; created_at: Date }>('SELECT id,branch_id,service_session_id,status,payload,created_at FROM foh_requests WHERE id=$1 FOR UPDATE', [requestId]);
+        assert(found.rowCount, 'NOT_FOUND', 'FOH request not found', 404); const current = found.rows[0]; assertBranchScope(actor, current.branch_id);
+        const status = command === 'acknowledge' ? 'ACKNOWLEDGED' : command === 'reject' ? 'REJECTED' : 'COMPLETED';
+        assert(current.status === 'SUBMITTED' || current.status === 'ACKNOWLEDGED' && command === 'complete', 'CONFLICT', 'Request cannot transition', 409);
+        const updated = await client.query<{ id: string; branch_id: string; service_session_id: string; status: typeof status; payload: { lines: import('./types.js').OrderLineInput[] }; created_at: Date }>('UPDATE foh_requests SET status=$2,acknowledged_by=CASE WHEN $2=$3 THEN $4 ELSE acknowledged_by END,acknowledged_at=CASE WHEN $2=$3 THEN now() ELSE acknowledged_at END WHERE id=$1 RETURNING id,branch_id,service_session_id,status,payload,created_at', [requestId,status,'ACKNOWLEDGED',actor.id]);
+        await client.query('INSERT INTO audit_logs(branch_id,actor_id,action,entity_type,entity_id,request_id) VALUES($1,$2,$3,$4,$5,$6)', [current.branch_id,actor.id,`FOH_REQUEST_${command.toUpperCase()}`,'FOH_REQUEST',requestId,auditRequestId]);
+        const row = updated.rows[0];
+
+ return { id: row.id, branchId: row.branch_id, serviceSessionId: row.service_session_id, status: row.status, lines: row.payload.lines, createdAt: row.created_at.toISOString() };
       });
     }
   };
