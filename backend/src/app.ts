@@ -7,6 +7,10 @@ import { createMemoryRepository } from './platform/memory-repository.js';
 import type { Actor, PlatformRepository } from './platform/types.js';
 import { createMemoryOperationsRepository } from './operations/memory-repository.js';
 import { createMemoryFohRepository } from './foh/memory-repository.js';
+import { createMemoryFloorRepository } from './floor/memory-repository.js';
+import type { FloorRepository, ServiceSession } from './floor/types.js';
+import { createMemoryOrderRepository } from './order/memory-repository.js';
+import type { OrderRepository } from './order/types.js';
 import type { CreateQueueInput, CreateReservationInput, FohRepository } from './foh/types.js';
 import type { CreateAssignmentInput, CreateCategoryInput, CreateDailyCountInput, CreateIngredientInput, CreateMenuItemInput, CreateMenuVersionInput, CreateModifierGroupInput, CreatePurchaseOrderInput, CreateRecipeInput, CreateShiftInput, CreateStaffInput, CreateStationAssignmentInput, CreateStockRequestInput, CreateSupplierInput, CreateTaskInput, CreateWastageInput, DashboardFilters, OperationsRepository, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, TaskCommandInput } from './operations/types.js';
 
@@ -16,6 +20,8 @@ type AppOptions = {
   repository?: PlatformRepository;
   operationsRepository?: OperationsRepository;
   fohRepository?: FohRepository;
+  floorRepository?: FloorRepository;
+  orderRepository?: OrderRepository;
   jwtSecret?: string;
   databaseStatus?: () => Promise<'ok' | 'unavailable' | 'not-configured'>;
 };
@@ -109,6 +115,8 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   const repository = options.repository ?? createMemoryRepository();
   const operationsRepository = options.operationsRepository ?? createMemoryOperationsRepository();
   const fohRepository = options.fohRepository ?? createMemoryFohRepository();
+  const floorRepository = options.floorRepository ?? createMemoryFloorRepository();
+  const orderRepository = options.orderRepository ?? createMemoryOrderRepository();
   const jwtSecret = options.jwtSecret ?? process.env.JWT_SECRET ?? 'luminex-local-development-secret';
 
   app.register(cors, { origin: true });
@@ -285,6 +293,15 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
  return envelope(await fohRepository.commandQueue(actor(request), request.params.queueId, request.params.command, request.id, readBody<{ reason?: string }>(request).reason), request.id); });
   app.patch<{ Params: { branchId: string }; Body: { state: 'OPEN' | 'PAUSED' | 'FULL' | 'CLOSED'; reason: string } }>('/api/v1/branches/:branchId/operating-state', { preHandler: authenticate }, async (request) => envelope(await fohRepository.setOperatingState(actor(request), request.params.branchId, request.body.state, request.body.reason, request.id), request.id));
   app.get<{ Querystring: { branchId: string; date?: string } }>('/api/v1/reservations', { preHandler: authenticate }, async (request) => envelope(await fohRepository.listReservations(actor(request), request.query.branchId, request.query.date), request.id));
+  app.get<{ Params: { branchId: string } }>('/api/v1/branches/:branchId/floor', { preHandler: authenticate }, async (request) => envelope(await floorRepository.board(actor(request), request.params.branchId), request.id));
+  app.post<{ Body: { branchId: string; tableId: string; partySize: number; minutes: number } }>('/api/v1/table-holds', { preHandler: authenticate }, async (request) => envelope(await floorRepository.hold(actor(request), request.body, readIdempotencyKey(request), request.id), request.id));
+  app.post<{ Body: { branchId: string; tableId: string; partySize: number; sourceType: ServiceSession['sourceType']; sourceId?: string } }>('/api/v1/service-sessions', { preHandler: authenticate, schema: { body: { type: 'object', required: ['branchId', 'tableId', 'partySize', 'sourceType'], properties: { branchId: { type: 'string', minLength: 1 }, tableId: { type: 'string', minLength: 1 }, partySize: { type: 'integer', minimum: 1, maximum: 30 }, sourceType: { type: 'string', enum: ['WALK_IN', 'QUEUE', 'RESERVATION'] }, sourceId: { type: 'string', minLength: 1 } }, additionalProperties: false } } }, async (request, reply) => reply.code(201).send(envelope(await floorRepository.seat(actor(request), request.body, readIdempotencyKey(request), request.id), request.id)));
+  app.post<{ Params: { sessionId: string } }>('/api/v1/service-sessions/:sessionId/vacate', { preHandler: authenticate }, async (request) => envelope(await floorRepository.vacate(actor(request), request.params.sessionId, readIdempotencyKey(request), request.id), request.id));
+  app.post<{ Params: { sessionId: string }; Body: { tableId: string } }>('/api/v1/service-sessions/:sessionId/transfer', { preHandler: authenticate }, async (request) => envelope(await floorRepository.transfer(actor(request), request.params.sessionId, request.body.tableId, readIdempotencyKey(request), request.id), request.id));
+  app.post<{ Params: { taskId: string } }>('/api/v1/cleaning-tasks/:taskId/claim', { preHandler: authenticate }, async (request) => envelope(await floorRepository.claimCleaning(actor(request), request.params.taskId, readIdempotencyKey(request), request.id), request.id));
+  app.post<{ Params: { taskId: string } }>('/api/v1/cleaning-tasks/:taskId/complete', { preHandler: authenticate }, async (request) => envelope(await floorRepository.completeCleaning(actor(request), request.params.taskId, readIdempotencyKey(request), request.id), request.id));
+  app.post<{ Params: { sessionId: string }; Body: { branchId: string; coursePolicy: 'AS_READY' | 'SERVE_TOGETHER'; lines: Array<{ menuItemId: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string }> } }>('/api/v1/service-sessions/:sessionId/orders', { preHandler: authenticate }, async (request, reply) => reply.code(201).send(envelope(await orderRepository.createDraft(actor(request), { ...request.body, serviceSessionId: request.params.sessionId }, readIdempotencyKey(request), request.id), request.id)));
+  app.post<{ Params: { orderId: string } }>('/api/v1/orders/:orderId/send', { preHandler: authenticate }, async (request) => envelope(await orderRepository.send(actor(request), request.params.orderId, readIdempotencyKey(request), request.id), request.id));
   app.post<{ Body: CreateReservationInput }>('/api/v1/reservations', { preHandler: authenticate, schema: reservationSchema }, async (request, reply) => reply.code(201).send(envelope(await fohRepository.createReservation(actor(request), readBody<CreateReservationInput>(request), readIdempotencyKey(request), request.id), request.id)));
   app.post<{ Params: { reservationId: string; command: 'confirm' | 'arrive' | 'cancel' | 'no-show' } }>('/api/v1/reservations/:reservationId/:command', { preHandler: authenticate }, async (request) => { assert(['confirm', 'arrive', 'cancel', 'no-show'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported reservation command');
 
