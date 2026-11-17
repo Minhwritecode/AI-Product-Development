@@ -85,6 +85,14 @@ export type QueueEntry = { id: string; branchId: string; queueCode: string; acce
 
 export type Reservation = { id: string; branchId: string; status: 'HELD' | 'CONFIRMED' | 'ARRIVED' | 'CANCELLED' | 'NO_SHOW' | 'EXPIRED'; partySize: number; reservedFor: string; durationMinutes: number; holdUntil?: string; language: 'vi' | 'en'; nickname?: string; createdAt: string; updatedAt: string };
 
+export type FloorTable = { id: string; areaId: string; label: string; capacity: number; accessibilityTags: string[]; status: 'READY' | 'BLOCKED' | 'MAINTENANCE' | 'INACTIVE' | 'IN_USE' | 'WAITING_CLEANING' | 'CLEANING' };
+
+export type FloorSession = { id: string; branchId: string; tableId: string; partySize: number; status: 'ACTIVE' | 'CLOSED'; sourceType: 'WALK_IN' | 'QUEUE' | 'RESERVATION'; sourceId?: string; openedAt: string };
+
+export type FloorCleaning = { id: string; branchId: string; tableId: string; status: 'OPEN' | 'CLAIMED' | 'COMPLETE'; priority: 'NORMAL' | 'HIGH'; createdAt: string };
+
+export type FloorBoard = { tables: FloorTable[]; sessions: FloorSession[]; cleaningTasks: FloorCleaning[]; asOf: string };
+
 export function createApiClient(baseUrl: string) {
   const root = baseUrl.replace(/\/$/, '');
 
@@ -115,6 +123,11 @@ export function createApiClient(baseUrl: string) {
     login: (email: string, password: string) => request<LoginData>('/v1/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
     logout: (token: string) => request<{ revoked: boolean }>('/v1/auth/logout', { method: 'POST' }, token),
     overview: (token: string) => request<SetupOverview>('/v1/setup/overview', {}, token),
+    floorBoard: (token: string, branchId: string) => request<FloorBoard>(`/v1/branches/${encodeURIComponent(branchId)}/floor`, {}, token),
+    seatTable: (token: string, input: { branchId: string; tableId: string; partySize: number; sourceType: 'WALK_IN' | 'QUEUE' | 'RESERVATION'; sourceId?: string }) => request<FloorSession>('/v1/service-sessions', { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify(input) }, token),
+    vacateSession: (token: string, sessionId: string) => request<FloorCleaning>(`/v1/service-sessions/${encodeURIComponent(sessionId)}/vacate`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } }, token),
+    claimCleaning: (token: string, taskId: string) => request<FloorCleaning>(`/v1/cleaning-tasks/${encodeURIComponent(taskId)}/claim`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } }, token),
+    completeCleaning: (token: string, taskId: string) => request<FloorCleaning>(`/v1/cleaning-tasks/${encodeURIComponent(taskId)}/complete`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } }, token),
     operationsWorkspace: (token: string, branchId: string) => request<StaffWorkspace>(`/v1/operations/workspace?branchId=${encodeURIComponent(branchId)}`, {}, token),
     masterData: (token: string, branchId: string) => request<MasterDataOverview>(`/v1/master-data/overview?branchId=${encodeURIComponent(branchId)}`, {}, token),
     createTask: (token: string, input: { branchId: string; title: string; sourceType: string; priority?: string }) => request<OperationalTask>('/v1/operational-tasks', { method: 'POST', body: JSON.stringify(input) }, token),
