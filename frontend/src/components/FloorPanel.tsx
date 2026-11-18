@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { createApiClient, FloorBoard, FloorTable, MasterDataOverview, SessionOrder } from '../lib/api';
+import type { createApiClient, FloorBoard, FloorTable, MasterDataOverview, SessionOrder, StationTicket } from '../lib/api';
 
 type Props = { api: ReturnType<typeof createApiClient>; token: string; branchId: string };
 
@@ -19,10 +19,25 @@ export function FloorPanel({ api, token, branchId }: Props) {
   const [qrLink, setQrLink] = useState('');
   const [holdMinutes, setHoldMinutes] = useState(10);
   const [transferTargets, setTransferTargets] = useState<Record<string, string>>({});
+  const [servingQueue, setServingQueue] = useState<StationTicket[]>([]);
 
   const refresh = useCallback(async () => {
-    try { const [nextBoard, nextMenu] = await Promise.all([api.floorBoard(token, branchId), api.masterData(token, branchId)]); setBoard(nextBoard); setMenu(nextMenu); setStale(false); setError(''); }
-    catch (caught) { setStale(true); setError(caught instanceof Error ? caught.message : 'Không tải được trạng thái bàn.'); }
+    try {
+      const [nextBoard, nextMenu, nextServing] = await Promise.all([
+        api.floorBoard(token, branchId),
+        api.masterData(token, branchId),
+        api.servingQueue(token, branchId)
+      ]);
+
+      setBoard(nextBoard);
+      setMenu(nextMenu);
+      setServingQueue(nextServing);
+      setStale(false);
+      setError('');
+    } catch (caught) {
+      setStale(true);
+      setError(caught instanceof Error ? caught.message : 'Không tải được trạng thái bàn.');
+    }
   }, [api, token, branchId]);
 
   useEffect(() => {
@@ -75,6 +90,15 @@ export function FloorPanel({ api, token, branchId }: Props) {
     catch (caught) { setError(caught instanceof Error ? caught.message : 'Không thể tạo QR cho bàn.'); }
   }
 
+  async function handleServingCommand(ticketId: string, command: 'pick-up' | 'serve') {
+    try {
+      await api.commandTicket(token, ticketId, command);
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Không thể cập nhật trạng thái bưng món.');
+    }
+  }
+
   return <section className="floor-panel panel" aria-labelledby="floor-title">
     <div className="section-heading"><div><span className="micro-label">FOH · FLOOR</span><h1 id="floor-title">Bàn &amp; vệ sinh</h1></div><button className="button button-secondary" onClick={() => void refresh()}>Cập nhật</button></div>
     <p className="section-lede" aria-live="polite">{stale ? 'Dữ liệu có thể đã cũ. Vui lòng thử lại.' : board ? `Cập nhật lúc ${new Date(board.asOf).toLocaleTimeString('vi-VN')}` : 'Đang tải trạng thái bàn…'}</p>
@@ -100,5 +124,69 @@ export function FloorPanel({ api, token, branchId }: Props) {
     {board?.tables.length === 0 && <p>Chưa có bàn trong chi nhánh này.</p>}
     {draft && <aside className="floor-draft" aria-live="polite"><strong>Order round {draft.roundNumber} · {draft.status}</strong><span>{draft.lines.map((line) => `${line.quantity}× ${line.itemName}`).join(' · ')}</span>{draft.status === 'DRAFT' && <><label className="floor-party">Course<select value={draft.coursePolicy} onChange={(event) => changeCoursePolicy(event.target.value)}><option value="AS_READY">Ra món khi sẵn sàng</option><option value="SERVE_TOGETHER">Ra cùng lúc</option></select></label><button onClick={() => void api.sendOrder(token, draft.id).then(setDraft).catch((caught) => setError(caught instanceof Error ? caught.message : 'Không thể gửi order.'))}>Gửi order đến station</button></>}</aside>}
     {qrLink && <aside className="floor-draft"><strong>Link QR bàn</strong><a href={qrLink} target="_blank" rel="noreferrer">Mở trải nghiệm guest table QR</a></aside>}
+
+    {/* Serving Pickup Queue */}
+    <section className="floor-serving-section" aria-labelledby="serving-queue-title">
+      <div className="section-heading">
+        <div>
+          <span className="micro-label">SERVING RUNNER QUEUE</span>
+          <h2 id="serving-queue-title">Hàng đợi bưng món &amp; phục vụ</h2>
+        </div>
+        <span className="completion-pill">{servingQueue.filter((t) => t.status === 'READY').length} món sẵn sàng</span>
+      </div>
+      <div className="serving-grid">
+        {servingQueue.map((ticket) => (
+          <article key={ticket.id} className="serving-card">
+            <header className="serving-card-header">
+              <div>
+                <strong>Bàn {ticket.tableLabel}</strong>
+                <span className="serving-station-tag">{ticket.stationCode === 'KITCHEN' ? '🍳 Bếp' : '🍸 Bar'}</span>
+              </div>
+              <span className={`status-badge status-${ticket.status === 'READY' ? 'ready' : 'pickup'}`}>
+                {ticket.status === 'READY' ? 'Sẵn sàng' : 'Đang bưng'}
+              </span>
+            </header>
+            {ticket.coursePolicy === 'SERVE_TOGETHER' && (
+              <span className="kds-course-badge kds-course-together">Ra cùng lúc</span>
+            )}
+            <ul className="serving-items">
+              {ticket.lines.map((l, i) => (
+                <li key={i}>
+                  <b>{l.quantity}×</b> {l.itemName}
+                  {l.guestNote && <small> ({l.guestNote})</small>}
+                  {l.allergenNote && <small className="allergen-alert-inline"> [⚠️ {l.allergenNote}]</small>}
+                </li>
+              ))}
+            </ul>
+            <div className="button-row">
+              {ticket.status === 'READY' && (
+                <button
+                  type="button"
+                  className="button button-primary"
+                  onClick={() => void handleServingCommand(ticket.id, 'pick-up')}
+                >
+                  Nhận bưng món
+                </button>
+              )}
+              {ticket.status === 'PICKED_UP' && (
+                <button
+                  type="button"
+                  className="button button-primary"
+                  onClick={() => void handleServingCommand(ticket.id, 'serve')}
+                >
+                  Đã phục vụ xong
+                </button>
+              )}
+            </div>
+          </article>
+        ))}
+        {!servingQueue.length && (
+          <div className="empty-state">
+            <strong>Chưa có món nào chờ bưng</strong>
+            <span>Khi bếp hoặc bar hoàn tất món, danh sách sẽ hiển thị tại đây.</span>
+          </div>
+        )}
+      </div>
+    </section>
   </section>;
 }

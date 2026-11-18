@@ -99,6 +99,31 @@ export type GuestTableMenu = { branchId: string; tableId: string; tableLabel: st
 
 export type FohRequest = { id: string; branchId: string; serviceSessionId: string; status: 'SUBMITTED' | 'ACKNOWLEDGED' | 'REJECTED' | 'COMPLETED'; lines: Array<{ menuItemId: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string }>; orderId?: string; createdAt: string };
 
+export type StationCode = 'KITCHEN' | 'BAR';
+
+export type TicketStatus = 'NEW' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'PICKED_UP' | 'SERVED' | 'DELAYED' | 'REJECTED' | 'CANCELLED';
+
+export type StationTicket = {
+  id: string;
+  orderId: string;
+  branchId: string;
+  stationCode: StationCode;
+  status: TicketStatus;
+  tableLabel: string;
+  roundNumber: number;
+  coursePolicy: 'AS_READY' | 'SERVE_TOGETHER';
+  lines: Array<{ menuItemId: string; itemName: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string; stationCode: StationCode }>;
+  createdAt: string;
+  acceptedAt?: string;
+  preparedAt?: string;
+  pickedUpAt?: string;
+  servedAt?: string;
+  delayedAt?: string;
+  delayReason?: string;
+  rejectedAt?: string;
+  rejectReason?: string;
+};
+
 export function createApiClient(baseUrl: string) {
   const root = baseUrl.replace(/\/$/, '');
 
@@ -144,6 +169,9 @@ export function createApiClient(baseUrl: string) {
     submitGuestTableRequest: (tableToken: string, lines: FohRequest['lines']) => request<FohRequest>('/v1/guest/table-requests', { method: 'POST', headers: { 'X-Table-Token': tableToken, 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify({ lines }) }),
     fohRequests: (token: string, branchId: string) => request<FohRequest[]>(`/v1/foh/requests?branchId=${encodeURIComponent(branchId)}`, {}, token),
     commandFohRequest: (token: string, requestId: string, command: 'acknowledge' | 'reject' | 'complete') => request<FohRequest>(`/v1/foh/requests/${encodeURIComponent(requestId)}/${command}`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } }, token),
+    stationTickets: (token: string, station: StationCode, branchId: string, status?: TicketStatus) => request<StationTicket[]>(`/v1/stations/${encodeURIComponent(station)}/tickets?branchId=${encodeURIComponent(branchId)}${status ? `&status=${encodeURIComponent(status)}` : ''}`, {}, token),
+    servingQueue: (token: string, branchId: string) => request<StationTicket[]>(`/v1/branches/${encodeURIComponent(branchId)}/serving-queue`, {}, token),
+    commandTicket: (token: string, ticketId: string, command: 'accept' | 'start' | 'ready' | 'delay' | 'reject' | 'pick-up' | 'serve', reason?: string) => request<StationTicket>(`/v1/tickets/${encodeURIComponent(ticketId)}/${command}`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: reason ? JSON.stringify({ reason }) : undefined }, token),
     operationsWorkspace: (token: string, branchId: string) => request<StaffWorkspace>(`/v1/operations/workspace?branchId=${encodeURIComponent(branchId)}`, {}, token),
     masterData: (token: string, branchId: string) => request<MasterDataOverview>(`/v1/master-data/overview?branchId=${encodeURIComponent(branchId)}`, {}, token),
     createTask: (token: string, input: { branchId: string; title: string; sourceType: string; priority?: string }) => request<OperationalTask>('/v1/operational-tasks', { method: 'POST', body: JSON.stringify(input) }, token),
