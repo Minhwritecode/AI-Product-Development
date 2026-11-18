@@ -319,4 +319,12 @@ input::placeholder { color: #657775; }
 .floor-table p { margin: 0; color: var(--muted, #62706a); }
 .floor-table button { min-height: 44px; border: 1px solid var(--line, #d9dfdc); border-radius: 10px; padding: 9px 12px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .floor-table button:disabled { opacity: .5; cursor: not-allowed; }
+.floor-draft { display: grid; gap: 8px; margin-top: 18px; border: 1px solid rgba(94,234,212,.28); border-radius: 12px; padding: 16px; background: rgba(94,234,212,.06); }.floor-draft strong { color: #dff4ec; }.floor-draft span { color: #95ada5; font-size: .82rem; }.floor-draft button { justify-self: start; min-height: 44px; border: 0; border-radius: 8px; padding: 0 14px; color: #092024; background: var(--teal); font: inherit; font-weight: 700; }
+.table-menu-list { display: grid; gap: 9px; margin: 22px 0; }.table-menu-item { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 11px; border: 1px solid rgba(190,217,207,.16); border-radius: 10px; padding: 13px; color: #dceae4; }.table-menu-item input { width: 19px; height: 19px; }.table-menu-item strong, .table-menu-item small { display: block; }.table-menu-item strong { font-size: .9rem; }.table-menu-item small { margin-top: 4px; color: #819a92; font-size: .72rem; line-height: 1.35; }.table-menu-item b { color: var(--gold); font: .72rem 'DM Mono', monospace; text-align: right; }
+.table-menu-controls { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px; padding-top: 10px; border-top: 1px dashed rgba(190,217,207,.12); margin-top: 8px; }
+.table-menu-controls label { display: flex; align-items: center; gap: 6px; font-size: .8rem; color: #9bb7ad; }
+.table-menu-controls input[type="number"] { width: 64px; min-height: 36px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,.25); border: 1px solid rgba(190,217,207,.2); color: inherit; font: inherit; }
+.table-menu-controls input[type="text"], .table-menu-controls input:not([type]) { min-height: 36px; padding: 4px 10px; border-radius: 6px; background: rgba(0,0,0,.25); border: 1px solid rgba(190,217,207,.2); color: inherit; font: inherit; flex: 1; min-width: 160px; }
+.guest-fallback { color: #8fa69e; font-size: .85rem; margin-top: 8px; line-height: 1.4; }
+.guest-footer-note { margin-top: 20px; font-size: .82rem; color: #728a82; text-align: center; }
 @media (max-width: 640px) { .floor-party { align-items: flex-start; flex-direction: column; } }
