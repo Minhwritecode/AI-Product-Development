@@ -5,6 +5,7 @@ import { BohInventoryPanel } from './components/BohInventoryPanel';
 import { BohDashboardPanel } from './components/BohDashboardPanel';
 import { FohQueuePanel } from './components/FohQueuePanel';
 import { GuestFrontDoor } from './components/GuestFrontDoor';
+import { GuestTableMenu } from './components/GuestTableMenu';
 import { FloorPanel } from './components/FloorPanel';
 import { LuminexLogo } from './components/LuminexLogo';
 import { createApiClient, type Area, type Branch, type RestaurantTable, type SetupOverview } from './lib/api';
@@ -90,6 +91,15 @@ function App() {
   async function createArea(name: string) { if (!token || !branch) return; await api.createArea(token, branch.id, { name }); await refresh(); setModal(null); setNotice(`Đã thêm khu vực “${name}”.`); }
 
   async function createTable(area: Area, label: string, capacity: number) { if (!token) return; await api.createTable(token, area.id, { label, capacity }); await refresh(); setModal(null); setNotice(`Đã thêm bàn ${label} vào ${area.name}.`); }
+
+  if (window.location.pathname.startsWith('/guest/table')) {
+    const query = new URLSearchParams(window.location.search);
+    const tableToken = query.get('token') ?? sessionStorage.getItem('luminex.table-token') ?? '';
+
+    if (query.has('token')) { sessionStorage.setItem('luminex.table-token', tableToken); window.history.replaceState({}, '', '/guest/table'); }
+
+    return tableToken ? <GuestTableMenu api={api} token={tableToken} /> : <main className="guest-page"><section className="guest-card"><p className="guest-error">Mã QR bàn không hợp lệ.</p></section></main>;
+  }
 
   if (window.location.pathname.startsWith('/guest')) return <GuestFrontDoor api={api} branchId={new URLSearchParams(window.location.search).get('branchId') ?? 'branch_central'} />;
 

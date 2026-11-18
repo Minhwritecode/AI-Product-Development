@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { QueueEntry, Reservation } from '../lib/api';
+import type { FohRequest, QueueEntry, Reservation } from '../lib/api';
 
 type QueueApi = {
   fohQueue: (token: string, branchId: string) => Promise<QueueEntry[]>;
   commandQueue: (token: string, queueId: string, command: 'call' | 'seat' | 'cancel' | 'expire', reason?: string) => Promise<QueueEntry>;
   reservations: (token: string, branchId: string, date?: string) => Promise<Reservation[]>;
   commandReservation: (token: string, reservationId: string, command: 'confirm' | 'arrive' | 'no-show') => Promise<Reservation>;
+  fohRequests: (token: string, branchId: string) => Promise<FohRequest[]>;
+  commandFohRequest: (token: string, requestId: string, command: 'acknowledge' | 'reject' | 'complete') => Promise<FohRequest>;
 };
 
 type Props = { token: string; branchId: string; api: QueueApi; onError: (message: string) => void };
@@ -100,6 +102,23 @@ function ReservationRow({ item, busy, onCommand }: { item: Reservation; busy: bo
   return <article className="reservation-row"><div><strong>{item.nickname || 'Khách chưa đặt tên'}</strong><small>{new Date(item.reservedFor).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} · {item.partySize} khách · {item.durationMinutes} phút</small></div><span className={`status-badge status-${status.tone}`}><span aria-hidden="true">{item.status === 'ARRIVED' ? '✓' : item.status === 'NO_SHOW' ? '!' : '○'}</span>{status.label}</span><div className="button-row">{canArrive && <button className="button button-primary" disabled={busy} onClick={() => void onCommand(item.id, 'arrive')}>{busy ? '…' : 'Đã đến'}</button>}{canNoShow && <button className="button button-secondary" disabled={busy} onClick={() => void onCommand(item.id, 'no-show')}>No-show</button>}</div></article>;
 }
 
+function GuestRequestPanel({ token, branchId, api, onError }: Props) {
+  const [requests, setRequests] = useState<FohRequest[]>([]);
+  const [busyId, setBusyId] = useState('');
+
+  async function load() { try { setRequests(await api.fohRequests(token, branchId)); } catch (caught) { onError(caught instanceof Error ? caught.message : 'Không tải được yêu cầu tại bàn.'); } }
+
+  useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 12000);
+
+ return () => window.clearInterval(timer); }, [token, branchId]);
+
+  async function command(id: string, command: 'acknowledge' | 'reject' | 'complete') { setBusyId(id);
+
+ try { const updated = await api.commandFohRequest(token, id, command); setRequests((current) => current.map((item) => item.id === id ? updated : item)); } catch (caught) { onError(caught instanceof Error ? caught.message : 'Không thể cập nhật yêu cầu.'); } finally { setBusyId(''); } }
+
+  return <section className="panel data-panel reservation-panel"><div className="section-heading"><div><span className="micro-label">TABLE QR · ADD-ON</span><h2>Yêu cầu tại bàn</h2></div><span className="completion-pill">{requests.filter((request) => request.status === 'SUBMITTED').length} mới</span></div><div className="reservation-list">{requests.map((request) => <article className="reservation-row" key={request.id}><div><strong>{request.lines.length} món yêu cầu</strong><small>{request.lines.map((line) => `${line.quantity}× ${line.menuItemId}${line.guestNote ? ` (${line.guestNote})` : ''}`).join(' · ')}</small>{request.orderId && <small>Order nháp: {request.orderId}</small>}</div><span className={`status-badge status-${request.status === 'SUBMITTED' ? 'planned' : 'active'}`}>{request.status}</span><div className="button-row">{request.status === 'SUBMITTED' && <><button className="button button-primary" disabled={busyId === request.id} onClick={() => void command(request.id, 'acknowledge')}>{busyId === request.id ? 'Đang tạo…' : 'Xác nhận & tạo order nháp'}</button><button className="button button-secondary" disabled={busyId === request.id} onClick={() => void command(request.id, 'reject')}>Từ chối</button></>}{request.status === 'ACKNOWLEDGED' && <button className="button button-primary" disabled={busyId === request.id} onClick={() => void command(request.id, 'complete')}>Đã xử lý</button>}</div></article>)}{!requests.length && <div className="empty-state"><strong>Chưa có yêu cầu tại bàn</strong><span>Khách quét QR có thể gửi add-on tại đây.</span></div>}</div></section>;
+}
+
 export function FohQueuePanel({ token, branchId, api, onError }: Props) {
   const [entries, setEntries] = useState<QueueEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,5 +165,5 @@ export function FohQueuePanel({ token, branchId, api, onError }: Props) {
 
   const active = entries.filter((entry) => ['WAITING', 'CALLED'].includes(entry.status));
 
-  return <section className="operations-view foh-queue-view" aria-labelledby="foh-queue-title"><header className="view-header"><div><span className="micro-label">FOH HOST DESK · FRONT-DOOR QR</span><h1 id="foh-queue-title">Một hàng chờ,<br /><em>một nhịp phục vụ.</em></h1><p>Guest QR và Host console dùng chung queue state; mỗi chuyển trạng thái có actor và audit ở backend.</p></div><div className="view-summary"><span className="live-status"><i />{loading ? 'Đang cập nhật' : 'Tự động theo dõi'}</span><strong>{active.length}</strong><span>khách đang chờ</span></div></header><Freshness stale={stale} updatedAt={updatedAt} onRetry={() => void load()} loading={loading} /><section className="panel data-panel"><div className="section-heading"><div><span className="micro-label">HOST ACTIONS</span><h2>Danh sách hàng chờ</h2></div><span className="completion-pill" aria-live="polite">{active.length} active</span></div><div className="foh-queue-list">{active.map((entry) => <QueueRow key={entry.id} entry={entry} pendingId={pendingId} cancelTarget={cancelTarget} setCancelTarget={setCancelTarget} onCommand={command} />)}{!active.length && <div className="empty-state"><strong>Hàng chờ đang trống</strong><span>Front-door QR sẽ cập nhật vào cùng queue này.</span></div>}</div></section><ReservationPanel token={token} branchId={branchId} api={api} onError={onError} /></section>;
+  return <section className="operations-view foh-queue-view" aria-labelledby="foh-queue-title"><header className="view-header"><div><span className="micro-label">FOH HOST DESK · FRONT-DOOR QR</span><h1 id="foh-queue-title">Một hàng chờ,<br /><em>một nhịp phục vụ.</em></h1><p>Guest QR và Host console dùng chung queue state; mỗi chuyển trạng thái có actor và audit ở backend.</p></div><div className="view-summary"><span className="live-status"><i />{loading ? 'Đang cập nhật' : 'Tự động theo dõi'}</span><strong>{active.length}</strong><span>khách đang chờ</span></div></header><Freshness stale={stale} updatedAt={updatedAt} onRetry={() => void load()} loading={loading} /><section className="panel data-panel"><div className="section-heading"><div><span className="micro-label">HOST ACTIONS</span><h2>Danh sách hàng chờ</h2></div><span className="completion-pill" aria-live="polite">{active.length} active</span></div><div className="foh-queue-list">{active.map((entry) => <QueueRow key={entry.id} entry={entry} pendingId={pendingId} cancelTarget={cancelTarget} setCancelTarget={setCancelTarget} onCommand={command} />)}{!active.length && <div className="empty-state"><strong>Hàng chờ đang trống</strong><span>Front-door QR sẽ cập nhật vào cùng queue này.</span></div>}</div></section><GuestRequestPanel token={token} branchId={branchId} api={api} onError={onError} /><ReservationPanel token={token} branchId={branchId} api={api} onError={onError} /></section>;
 }
