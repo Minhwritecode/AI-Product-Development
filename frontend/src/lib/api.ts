@@ -85,13 +85,19 @@ export type QueueEntry = { id: string; branchId: string; queueCode: string; acce
 
 export type Reservation = { id: string; branchId: string; status: 'HELD' | 'CONFIRMED' | 'ARRIVED' | 'CANCELLED' | 'NO_SHOW' | 'EXPIRED'; partySize: number; reservedFor: string; durationMinutes: number; holdUntil?: string; language: 'vi' | 'en'; nickname?: string; createdAt: string; updatedAt: string };
 
-export type FloorTable = { id: string; areaId: string; label: string; capacity: number; accessibilityTags: string[]; status: 'READY' | 'BLOCKED' | 'MAINTENANCE' | 'INACTIVE' | 'IN_USE' | 'WAITING_CLEANING' | 'CLEANING' };
+export type FloorTable = { id: string; areaId: string; label: string; capacity: number; accessibilityTags: string[]; status: 'READY' | 'HELD' | 'BLOCKED' | 'MAINTENANCE' | 'INACTIVE' | 'IN_USE' | 'WAITING_CLEANING' | 'CLEANING' };
 
 export type FloorSession = { id: string; branchId: string; tableId: string; partySize: number; status: 'ACTIVE' | 'CLOSED'; sourceType: 'WALK_IN' | 'QUEUE' | 'RESERVATION'; sourceId?: string; openedAt: string };
 
 export type FloorCleaning = { id: string; branchId: string; tableId: string; status: 'OPEN' | 'CLAIMED' | 'COMPLETE'; priority: 'NORMAL' | 'HIGH'; createdAt: string };
 
 export type FloorBoard = { tables: FloorTable[]; sessions: FloorSession[]; cleaningTasks: FloorCleaning[]; asOf: string };
+
+export type SessionOrder = { id: string; branchId: string; serviceSessionId: string; status: 'DRAFT' | 'SENT' | 'CANCELLED'; roundNumber: number; coursePolicy: 'AS_READY' | 'SERVE_TOGETHER'; lines: Array<{ menuItemId: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string; itemName: string; unitPrice: number; currency: string; stationCode: 'KITCHEN' | 'BAR' }> };
+
+export type GuestTableMenu = { branchId: string; tableId: string; tableLabel: string; serviceSessionId: string; items: Array<{ id: string; name: string; description: string; price: number; currency: string; allergenCodes: string[]; stationCode: 'KITCHEN' | 'BAR' }> };
+
+export type FohRequest = { id: string; branchId: string; serviceSessionId: string; status: 'SUBMITTED' | 'ACKNOWLEDGED' | 'REJECTED' | 'COMPLETED'; lines: Array<{ menuItemId: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string }>; orderId?: string; createdAt: string };
 
 export function createApiClient(baseUrl: string) {
   const root = baseUrl.replace(/\/$/, '');
@@ -124,10 +130,20 @@ export function createApiClient(baseUrl: string) {
     logout: (token: string) => request<{ revoked: boolean }>('/v1/auth/logout', { method: 'POST' }, token),
     overview: (token: string) => request<SetupOverview>('/v1/setup/overview', {}, token),
     floorBoard: (token: string, branchId: string) => request<FloorBoard>(`/v1/branches/${encodeURIComponent(branchId)}/floor`, {}, token),
+    holdTable: (token: string, input: { branchId: string; tableId: string; partySize: number; minutes: number }) => request<{ id: string; tableId: string; expiresAt: string }>('/v1/table-holds', { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify(input) }, token),
     seatTable: (token: string, input: { branchId: string; tableId: string; partySize: number; sourceType: 'WALK_IN' | 'QUEUE' | 'RESERVATION'; sourceId?: string }) => request<FloorSession>('/v1/service-sessions', { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify(input) }, token),
     vacateSession: (token: string, sessionId: string) => request<FloorCleaning>(`/v1/service-sessions/${encodeURIComponent(sessionId)}/vacate`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } }, token),
+    transferSession: (token: string, sessionId: string, tableId: string) => request<FloorSession>(`/v1/service-sessions/${encodeURIComponent(sessionId)}/transfer`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify({ tableId }) }, token),
     claimCleaning: (token: string, taskId: string) => request<FloorCleaning>(`/v1/cleaning-tasks/${encodeURIComponent(taskId)}/claim`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } }, token),
     completeCleaning: (token: string, taskId: string) => request<FloorCleaning>(`/v1/cleaning-tasks/${encodeURIComponent(taskId)}/complete`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } }, token),
+    issueTableQr: (token: string, tableId: string) => request<{ token: string; expiresAt: string }>(`/v1/tables/${encodeURIComponent(tableId)}/qr-token`, { method: 'POST' }, token),
+    createOrderDraft: (token: string, sessionId: string, input: { branchId: string; coursePolicy: 'AS_READY' | 'SERVE_TOGETHER'; lines: Array<{ menuItemId: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string }> }) => request<SessionOrder>(`/v1/service-sessions/${encodeURIComponent(sessionId)}/orders`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify(input) }, token),
+    updateOrderDraft: (token: string, orderId: string, input: { coursePolicy: 'AS_READY' | 'SERVE_TOGETHER'; lines: Array<{ menuItemId: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string }> }) => request<SessionOrder>(`/v1/orders/${encodeURIComponent(orderId)}`, { method: 'PATCH', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify(input) }, token),
+    sendOrder: (token: string, orderId: string) => request<SessionOrder>(`/v1/orders/${encodeURIComponent(orderId)}/send`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } }, token),
+    guestTableMenu: (tableToken: string) => request<GuestTableMenu>('/v1/guest/table-menu', { headers: { 'X-Table-Token': tableToken } }),
+    submitGuestTableRequest: (tableToken: string, lines: FohRequest['lines']) => request<FohRequest>('/v1/guest/table-requests', { method: 'POST', headers: { 'X-Table-Token': tableToken, 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify({ lines }) }),
+    fohRequests: (token: string, branchId: string) => request<FohRequest[]>(`/v1/foh/requests?branchId=${encodeURIComponent(branchId)}`, {}, token),
+    commandFohRequest: (token: string, requestId: string, command: 'acknowledge' | 'reject' | 'complete') => request<FohRequest>(`/v1/foh/requests/${encodeURIComponent(requestId)}/${command}`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } }, token),
     operationsWorkspace: (token: string, branchId: string) => request<StaffWorkspace>(`/v1/operations/workspace?branchId=${encodeURIComponent(branchId)}`, {}, token),
     masterData: (token: string, branchId: string) => request<MasterDataOverview>(`/v1/master-data/overview?branchId=${encodeURIComponent(branchId)}`, {}, token),
     createTask: (token: string, input: { branchId: string; title: string; sourceType: string; priority?: string }) => request<OperationalTask>('/v1/operational-tasks', { method: 'POST', body: JSON.stringify(input) }, token),
