@@ -327,4 +327,58 @@ input::placeholder { color: #657775; }
 .table-menu-controls input[type="text"], .table-menu-controls input:not([type]) { min-height: 36px; padding: 4px 10px; border-radius: 6px; background: rgba(0,0,0,.25); border: 1px solid rgba(190,217,207,.2); color: inherit; font: inherit; flex: 1; min-width: 160px; }
 .guest-fallback { color: #8fa69e; font-size: .85rem; margin-top: 8px; line-height: 1.4; }
 .guest-footer-note { margin-top: 20px; font-size: .82rem; color: #728a82; text-align: center; }
+
+/* Weeks 11-12 KDS & Serving Queue */
+.kds-view { display: grid; gap: 20px; }
+.kds-station-switcher { display: flex; gap: 12px; margin-bottom: 4px; }
+.kds-station-btn { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 20px; border-radius: 12px; border: 1px solid var(--line, #283935); background: var(--surface, #101c19); color: #9bb7ad; font-size: .95rem; font-weight: 600; cursor: pointer; transition: all .15s ease; }
+.kds-station-btn.active { background: rgba(94, 234, 212, 0.12); border-color: var(--teal, #5eead4); color: var(--teal, #5eead4); }
+.kds-count-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--teal, #5eead4); color: #092024; font-size: .75rem; font-weight: 700; }
+
+.kds-filter-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.kds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 18px; margin-top: 10px; }
+.kds-card { display: flex; flex-direction: column; justify-content: space-between; gap: 14px; border: 1px solid rgba(190, 217, 207, 0.18); border-radius: 16px; padding: 18px; background: rgba(16, 28, 25, 0.85); box-shadow: 0 4px 18px rgba(0,0,0,0.22); }
+.kds-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; border-bottom: 1px solid rgba(190, 217, 207, 0.1); padding-bottom: 12px; }
+.kds-table-badge { font-size: 1.25rem; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
+.kds-round-badge { margin-left: 8px; padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,0.08); color: #9bb7ad; font-size: .75rem; font-weight: 600; }
+.kds-card-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.kds-timer { font-family: 'DM Mono', monospace; font-size: .78rem; font-weight: 600; }
+.kds-timer-normal { color: #4ade80; }
+.kds-timer-warning { color: #fbbf24; }
+.kds-timer-urgent { color: #f87171; font-weight: 700; }
+
+.kds-course-bar { display: flex; align-items: center; }
+.kds-course-badge { font-size: .72rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
+.kds-course-together { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.35); }
+.kds-course-ready { background: rgba(94, 234, 212, 0.1); color: #5eead4; border: 1px solid rgba(94, 234, 212, 0.25); }
+
+.kds-item-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.kds-item-row { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; border-bottom: 1px dashed rgba(190, 217, 207, 0.08); }
+.kds-item-main { display: flex; align-items: baseline; gap: 8px; }
+.kds-item-qty { font-size: 1.15rem; color: var(--gold, #fcd34d); min-width: 28px; }
+.kds-item-name { font-size: .98rem; font-weight: 700; color: #eaf5f1; }
+.kds-allergen-alert { margin-top: 4px; padding: 6px 9px; border-radius: 8px; background: rgba(239, 68, 68, 0.18); border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; font-size: .78rem; font-weight: 600; }
+.kds-guest-note { margin: 2px 0 0; color: #9bb7ad; font-size: .78rem; }
+
+.kds-exception-box { padding: 8px 12px; border-radius: 8px; font-size: .8rem; }
+.kds-box-delay { background: rgba(251, 191, 36, 0.14); border: 1px solid rgba(251, 191, 36, 0.4); color: #fde68a; }
+.kds-box-reject { background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; }
+
+.kds-card-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.kds-action-btn { width: 100%; min-height: 44px; font-weight: 700; font-size: .9rem; border-radius: 10px; }
+.kds-btn-start { background: #f59e0b; color: #1c1917; }
+.kds-btn-ready { background: #10b981; color: #042f2e; }
+.kds-secondary-actions { display: flex; gap: 8px; }
+.kds-secondary-actions button { flex: 1; min-height: 40px; font-size: .82rem; }
+.kds-btn-danger { color: #f87171 !important; border-color: rgba(248, 113, 113, 0.3) !important; }
+
+/* Floor Serving Section */
+.floor-serving-section { margin-top: 28px; padding-top: 24px; border-top: 1px solid rgba(190, 217, 207, 0.15); display: flex; flex-direction: column; gap: 14px; }
+.serving-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.serving-card { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; border: 1px solid rgba(94, 234, 212, 0.22); border-radius: 14px; padding: 14px; background: rgba(94, 234, 212, 0.04); }
+.serving-card-header { display: flex; justify-content: space-between; align-items: center; }
+.serving-station-tag { margin-left: 6px; font-size: .75rem; color: #9bb7ad; }
+.serving-items { list-style: none; padding: 0; margin: 4px 0; font-size: .85rem; color: #dff4ec; display: flex; flex-direction: column; gap: 4px; }
+.allergen-alert-inline { color: #f87171; font-weight: 600; }
+
 @media (max-width: 640px) { .floor-party { align-items: flex-start; flex-direction: column; } }
