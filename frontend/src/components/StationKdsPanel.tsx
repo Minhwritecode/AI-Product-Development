@@ -294,27 +294,39 @@ export function StationKdsPanel({ api, token, branchId }: Props) {
                 )}
 
                 {ticket.status === 'DELAYED' && (
-                  <button
-                    type="button"
-                    className="button button-primary kds-action-btn"
-                    disabled={isBusy}
-                    onClick={() => void handleCommand(ticket.id, 'start')}
-                  >
-                    Tiếp tục nấu
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="button button-primary kds-action-btn"
+                      disabled={isBusy}
+                      onClick={() => void handleCommand(ticket.id, 'start')}
+                    >
+                      Tiếp tục nấu
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-primary kds-action-btn kds-btn-ready"
+                      disabled={isBusy}
+                      onClick={() => void handleCommand(ticket.id, 'ready')}
+                    >
+                      Hoàn tất ra món (Ready)
+                    </button>
+                  </>
                 )}
 
                 {/* Delay & Reject options */}
-                {['NEW', 'ACCEPTED', 'PREPARING'].includes(ticket.status) && (
+                {['NEW', 'ACCEPTED', 'PREPARING', 'DELAYED'].includes(ticket.status) && (
                   <div className="kds-secondary-actions">
-                    <button
-                      type="button"
-                      className="button button-secondary"
-                      disabled={isBusy}
-                      onClick={() => setReasonModal({ ticketId: ticket.id, command: 'delay', title: 'Báo trễ món' })}
-                    >
-                      Báo trễ
-                    </button>
+                    {['NEW', 'ACCEPTED', 'PREPARING'].includes(ticket.status) && (
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        disabled={isBusy}
+                        onClick={() => setReasonModal({ ticketId: ticket.id, command: 'delay', title: 'Báo trễ món' })}
+                      >
+                        Báo trễ
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="button button-secondary kds-btn-danger"

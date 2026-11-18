@@ -141,6 +141,30 @@ describe('weeks 11–12 station execution and serving flow', () => {
     expect(serve.statusCode).toBe(200);
     expect(serve.json().data.status).toBe('SERVED');
 
+    // 10. Bar completes ticket using /complete alias: PREPARING -> READY
+    const barTicketId = barList[0].id;
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/tickets/${barTicketId}/accept`,
+      headers: { ...headers, 'idempotency-key': 'bar-accept-001' }
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/tickets/${barTicketId}/start`,
+      headers: { ...headers, 'idempotency-key': 'bar-start-001' }
+    });
+
+    const barComplete = await app.inject({
+      method: 'POST',
+      url: `/api/v1/tickets/${barTicketId}/complete`,
+      headers: { ...headers, 'idempotency-key': 'bar-complete-001' }
+    });
+
+    expect(barComplete.statusCode).toBe(200);
+    expect(barComplete.json().data.status).toBe('READY');
+
     await app.close();
   });
 
