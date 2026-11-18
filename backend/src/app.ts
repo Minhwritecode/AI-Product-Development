@@ -11,6 +11,8 @@ import { createMemoryFloorRepository } from './floor/memory-repository.js';
 import type { FloorRepository, ServiceSession } from './floor/types.js';
 import { createMemoryOrderRepository } from './order/memory-repository.js';
 import type { OrderRepository } from './order/types.js';
+import { createMemoryStationRepository } from './station/memory-repository.js';
+import type { StationCode, StationRepository, TicketStatus } from './station/types.js';
 import type { CreateQueueInput, CreateReservationInput, FohRepository } from './foh/types.js';
 import type { CreateAssignmentInput, CreateCategoryInput, CreateDailyCountInput, CreateIngredientInput, CreateMenuItemInput, CreateMenuVersionInput, CreateModifierGroupInput, CreatePurchaseOrderInput, CreateRecipeInput, CreateShiftInput, CreateStaffInput, CreateStationAssignmentInput, CreateStockRequestInput, CreateSupplierInput, CreateTaskInput, CreateWastageInput, DashboardFilters, OperationsRepository, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, TaskCommandInput } from './operations/types.js';
 
@@ -22,6 +24,7 @@ type AppOptions = {
   fohRepository?: FohRepository;
   floorRepository?: FloorRepository;
   orderRepository?: OrderRepository;
+  stationRepository?: StationRepository;
   jwtSecret?: string;
   databaseStatus?: () => Promise<'ok' | 'unavailable' | 'not-configured'>;
 };
@@ -125,6 +128,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   const fohRepository = options.fohRepository ?? createMemoryFohRepository();
   const floorRepository = options.floorRepository ?? createMemoryFloorRepository();
   const orderRepository = options.orderRepository ?? createMemoryOrderRepository();
+  const stationRepository = options.stationRepository ?? createMemoryStationRepository();
   const jwtSecret = options.jwtSecret ?? process.env.JWT_SECRET ?? 'luminex-local-development-secret';
 
   app.register(cors, { origin: true });
@@ -239,9 +243,11 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   app.post<{ Params: { shiftId: string }; Body: CreateAssignmentInput }>('/api/v1/shifts/:shiftId/assignments', { preHandler: authenticate, schema: assignmentSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.assignShift(actor(request), request.params.shiftId, readBody<CreateAssignmentInput>(request), request.id), request.id)));
   app.post<{ Params: { staffId: string }; Body: CreateStationAssignmentInput }>('/api/v1/staff/:staffId/station-assignments', { preHandler: authenticate, schema: stationAssignmentSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createStationAssignment(actor(request), request.params.staffId, readBody<CreateStationAssignmentInput>(request), request.id), request.id)));
   app.post<{ Body: CreateTaskInput }>('/api/v1/operational-tasks', { preHandler: authenticate, schema: taskSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createTask(actor(request), readBody<CreateTaskInput>(request), request.id), request.id)));
-  app.post<{ Params: { taskId: string; command: 'claim' | 'route' | 'resolve' | 'escalate' | 'handover' }; Body: TaskCommandInput }>('/api/v1/operational-tasks/:taskId/:command', { preHandler: authenticate, schema: taskCommandSchema }, async (request) => { assert(['claim', 'route', 'resolve', 'escalate', 'handover'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported task command');
+  app.post<{ Params: { taskId: string; command: 'claim' | 'route' | 'resolve' | 'escalate' | 'handover' }; Body: TaskCommandInput }>('/api/v1/operational-tasks/:taskId/:command', { preHandler: authenticate, schema: taskCommandSchema }, async (request) => {
+    assert(['claim', 'route', 'resolve', 'escalate', 'handover'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported task command');
 
- return envelope(await operationsRepository.commandTask(actor(request), request.params.taskId, request.params.command, readBody<TaskCommandInput>(request), request.id), request.id); });
+    return envelope(await operationsRepository.commandTask(actor(request), request.params.taskId, request.params.command, readBody<TaskCommandInput>(request), request.id), request.id);
+  });
   app.get<{ Querystring: { branchId: string } }>('/api/v1/master-data/overview', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.getMasterData(actor(request), request.query.branchId), request.id));
   app.post<{ Body: CreateIngredientInput }>('/api/v1/ingredients', { preHandler: authenticate, schema: ingredientSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createIngredient(actor(request), readBody<CreateIngredientInput>(request), request.id), request.id)));
   app.post<{ Body: CreateSupplierInput }>('/api/v1/suppliers', { preHandler: authenticate, schema: supplierSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createSupplier(actor(request), readBody<CreateSupplierInput>(request), request.id), request.id)));
@@ -296,9 +302,11 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   app.get<{ Params: { queueId: string } }>('/api/v1/guest/queues/:queueId', async (request) => envelope(await fohRepository.getQueueEntry(request.params.queueId, readGuestAccessToken(request)), request.id));
   app.post<{ Params: { queueId: string } }>('/api/v1/guest/queues/:queueId/leave', async (request) => envelope(await fohRepository.leaveQueue(request.params.queueId, readGuestAccessToken(request), readIdempotencyKey(request)), request.id));
   app.get<{ Querystring: { branchId: string } }>('/api/v1/foh/queues', { preHandler: authenticate }, async (request) => envelope(await fohRepository.listQueue(actor(request), request.query.branchId), request.id));
-  app.post<{ Params: { queueId: string; command: 'call' | 'seat' | 'cancel' | 'expire' }; Body: { reason?: string } }>('/api/v1/foh/queues/:queueId/:command', { preHandler: authenticate }, async (request) => { assert(['call', 'seat', 'cancel', 'expire'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported queue command');
+  app.post<{ Params: { queueId: string; command: 'call' | 'seat' | 'cancel' | 'expire' }; Body: { reason?: string } }>('/api/v1/foh/queues/:queueId/:command', { preHandler: authenticate }, async (request) => {
+    assert(['call', 'seat', 'cancel', 'expire'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported queue command');
 
- return envelope(await fohRepository.commandQueue(actor(request), request.params.queueId, request.params.command, request.id, readBody<{ reason?: string }>(request).reason), request.id); });
+    return envelope(await fohRepository.commandQueue(actor(request), request.params.queueId, request.params.command, request.id, readBody<{ reason?: string }>(request).reason), request.id);
+  });
   app.patch<{ Params: { branchId: string }; Body: { state: 'OPEN' | 'PAUSED' | 'FULL' | 'CLOSED'; reason: string } }>('/api/v1/branches/:branchId/operating-state', { preHandler: authenticate }, async (request) => envelope(await fohRepository.setOperatingState(actor(request), request.params.branchId, request.body.state, request.body.reason, request.id), request.id));
   app.get<{ Querystring: { branchId: string; date?: string } }>('/api/v1/reservations', { preHandler: authenticate }, async (request) => envelope(await fohRepository.listReservations(actor(request), request.query.branchId, request.query.date), request.id));
   app.get<{ Params: { branchId: string } }>('/api/v1/branches/:branchId/floor', { preHandler: authenticate }, async (request) => envelope(await floorRepository.board(actor(request), request.params.branchId), request.id));
@@ -312,25 +320,71 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   app.get('/api/v1/guest/table-menu', async (request) => envelope(await orderRepository.guestMenu(readTableToken(request)), request.id));
   app.post<{ Body: { lines: Array<{ menuItemId: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string }> } }>('/api/v1/guest/table-requests', async (request, reply) => reply.code(201).send(envelope(await orderRepository.submitGuestRequest(readTableToken(request), request.body.lines, readIdempotencyKey(request)), request.id)));
   app.get<{ Querystring: { branchId: string } }>('/api/v1/foh/requests', { preHandler: authenticate }, async (request) => envelope(await orderRepository.listRequests(actor(request), request.query.branchId), request.id));
-  app.post<{ Params: { requestId: string; command: 'acknowledge' | 'reject' | 'complete' } }>('/api/v1/foh/requests/:requestId/:command', { preHandler: authenticate }, async (request) => { assert(['acknowledge', 'reject', 'complete'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported request command');
+  app.post<{ Params: { requestId: string; command: 'acknowledge' | 'reject' | 'complete' } }>('/api/v1/foh/requests/:requestId/:command', { preHandler: authenticate }, async (request) => {
+    assert(['acknowledge', 'reject', 'complete'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported request command');
 
- return envelope(await orderRepository.commandRequest(actor(request), request.params.requestId, request.params.command, readIdempotencyKey(request), request.id), request.id); });
+    return envelope(await orderRepository.commandRequest(actor(request), request.params.requestId, request.params.command, readIdempotencyKey(request), request.id), request.id);
+  });
   app.post<{ Params: { sessionId: string }; Body: { branchId: string; coursePolicy: 'AS_READY' | 'SERVE_TOGETHER'; lines: Array<{ menuItemId: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string }> } }>('/api/v1/service-sessions/:sessionId/orders', { preHandler: authenticate }, async (request, reply) => reply.code(201).send(envelope(await orderRepository.createDraft(actor(request), { ...request.body, serviceSessionId: request.params.sessionId }, readIdempotencyKey(request), request.id), request.id)));
   app.patch<{ Params: { orderId: string }; Body: { coursePolicy: 'AS_READY' | 'SERVE_TOGETHER'; lines: Array<{ menuItemId: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string }> } }>('/api/v1/orders/:orderId', { preHandler: authenticate }, async (request) => envelope(await orderRepository.updateDraft(actor(request), request.params.orderId, request.body, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Params: { orderId: string } }>('/api/v1/orders/:orderId/send', { preHandler: authenticate }, async (request) => envelope(await orderRepository.send(actor(request), request.params.orderId, readIdempotencyKey(request), request.id), request.id));
+  app.post<{ Params: { orderId: string } }>('/api/v1/orders/:orderId/send', { preHandler: authenticate }, async (request) => {
+    const result = await orderRepository.send(actor(request), request.params.orderId, readIdempotencyKey(request), request.id);
+
+    if (stationRepository.createTicketDirect) {
+      for (const stationCode of ['KITCHEN', 'BAR'] as const) {
+        const stationLines = result.lines.filter((line) => line.stationCode === stationCode);
+
+        if (!stationLines.length) continue;
+        stationRepository.createTicketDirect({
+          id: `ticket_${randomUUID()}`,
+          orderId: result.id,
+          branchId: result.branchId,
+          stationCode,
+          status: 'NEW',
+          tableLabel: 'T01',
+          roundNumber: result.roundNumber,
+          coursePolicy: result.coursePolicy,
+          lines: stationLines,
+          createdAt: new Date().toISOString()
+        });
+      }
+    }
+
+    return envelope(result, request.id);
+  });
+  app.get<{ Params: { station: string }; Querystring: { branchId: string; status?: TicketStatus } }>('/api/v1/stations/:station/tickets', { preHandler: authenticate }, async (request) => {
+    assert(request.params.station === 'KITCHEN' || request.params.station === 'BAR', 'VALIDATION_ERROR', 'Station must be KITCHEN or BAR');
+    const stationCode: StationCode = request.params.station === 'KITCHEN' ? 'KITCHEN' : 'BAR';
+
+    return envelope(await stationRepository.listTickets(actor(request), request.query.branchId, stationCode, request.query.status), request.id);
+  });
+  app.get<{ Params: { branchId: string } }>('/api/v1/branches/:branchId/serving-queue', { preHandler: authenticate }, async (request) => envelope(await stationRepository.servingQueue(actor(request), request.params.branchId), request.id));
+  app.post<{ Params: { ticketId: string } }>('/api/v1/tickets/:ticketId/accept', { preHandler: authenticate }, async (request) => envelope(await stationRepository.accept(actor(request), request.params.ticketId, readIdempotencyKey(request), request.id), request.id));
+  app.post<{ Params: { ticketId: string } }>('/api/v1/tickets/:ticketId/start', { preHandler: authenticate }, async (request) => envelope(await stationRepository.start(actor(request), request.params.ticketId, readIdempotencyKey(request), request.id), request.id));
+  app.post<{ Params: { ticketId: string } }>('/api/v1/tickets/:ticketId/ready', { preHandler: authenticate }, async (request) => envelope(await stationRepository.ready(actor(request), request.params.ticketId, readIdempotencyKey(request), request.id), request.id));
+  app.post<{ Params: { ticketId: string }; Body: { reason: string } }>('/api/v1/tickets/:ticketId/delay', { preHandler: authenticate }, async (request) => envelope(await stationRepository.delay(actor(request), request.params.ticketId, request.body.reason, readIdempotencyKey(request), request.id), request.id));
+  app.post<{ Params: { ticketId: string }; Body: { reason: string } }>('/api/v1/tickets/:ticketId/reject', { preHandler: authenticate }, async (request) => envelope(await stationRepository.reject(actor(request), request.params.ticketId, request.body.reason, readIdempotencyKey(request), request.id), request.id));
+  app.post<{ Params: { ticketId: string } }>('/api/v1/tickets/:ticketId/pick-up', { preHandler: authenticate }, async (request) => envelope(await stationRepository.pickup(actor(request), request.params.ticketId, readIdempotencyKey(request), request.id), request.id));
+  app.post<{ Params: { ticketId: string } }>('/api/v1/tickets/:ticketId/serve', { preHandler: authenticate }, async (request) => envelope(await stationRepository.serve(actor(request), request.params.ticketId, readIdempotencyKey(request), request.id), request.id));
   app.post<{ Body: CreateReservationInput }>('/api/v1/reservations', { preHandler: authenticate, schema: reservationSchema }, async (request, reply) => reply.code(201).send(envelope(await fohRepository.createReservation(actor(request), readBody<CreateReservationInput>(request), readIdempotencyKey(request), request.id), request.id)));
-  app.post<{ Params: { reservationId: string; command: 'confirm' | 'arrive' | 'cancel' | 'no-show' } }>('/api/v1/reservations/:reservationId/:command', { preHandler: authenticate }, async (request) => { assert(['confirm', 'arrive', 'cancel', 'no-show'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported reservation command');
+  app.post<{ Params: { reservationId: string; command: 'confirm' | 'arrive' | 'cancel' | 'no-show' } }>('/api/v1/reservations/:reservationId/:command', { preHandler: authenticate }, async (request) => {
+    assert(['confirm', 'arrive', 'cancel', 'no-show'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported reservation command');
 
- return envelope(await fohRepository.commandReservation(actor(request), request.params.reservationId, request.params.command, readIdempotencyKey(request), request.id), request.id); });
+    return envelope(await fohRepository.commandReservation(actor(request), request.params.reservationId, request.params.command, readIdempotencyKey(request), request.id), request.id);
+  });
   app.post<{ Body: CreatePurchaseOrderInput }>('/api/v1/purchase-orders', { preHandler: authenticate, schema: purchaseOrderSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createPurchaseOrder(actor(request), readBody<CreatePurchaseOrderInput>(request), request.id, readIdempotencyKey(request)), request.id)));
-  app.post<{ Params: { purchaseOrderId: string; command: 'send' | 'cancel' } }>('/api/v1/purchase-orders/:purchaseOrderId/:command', { preHandler: authenticate }, async (request) => { assert(['send', 'cancel'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported purchase order command');
+  app.post<{ Params: { purchaseOrderId: string; command: 'send' | 'cancel' } }>('/api/v1/purchase-orders/:purchaseOrderId/:command', { preHandler: authenticate }, async (request) => {
+    assert(['send', 'cancel'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported purchase order command');
 
- return envelope(await operationsRepository.commandPurchaseOrder(actor(request), request.params.purchaseOrderId, request.params.command, request.id, readIdempotencyKey(request)), request.id); });
+    return envelope(await operationsRepository.commandPurchaseOrder(actor(request), request.params.purchaseOrderId, request.params.command, request.id, readIdempotencyKey(request)), request.id);
+  });
   app.post<{ Body: import('./operations/types.js').ConfirmGoodsReceiptInput }>('/api/v1/goods-receipts/confirm', { preHandler: authenticate, schema: goodsReceiptSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.confirmGoodsReceipt(actor(request), readBody<import('./operations/types.js').ConfirmGoodsReceiptInput>(request), request.id, readIdempotencyKey(request)), request.id)));
   app.post<{ Body: CreateStockRequestInput }>('/api/v1/stock-requests', { preHandler: authenticate, schema: stockRequestSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createStockRequest(actor(request), readBody<CreateStockRequestInput>(request), request.id, readIdempotencyKey(request)), request.id)));
-  app.post<{ Params: { requestId: string; command: 'approve' | 'reject' | 'ship' | 'accept' }; Body: { reason?: string } }>('/api/v1/stock-requests/:requestId/:command', { preHandler: authenticate }, async (request) => { assert(['approve', 'reject', 'ship', 'accept'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported stock request command'); const body = readBody<{ reason?: string }>(request);
+  app.post<{ Params: { requestId: string; command: 'approve' | 'reject' | 'ship' | 'accept' }; Body: { reason?: string } }>('/api/v1/stock-requests/:requestId/:command', { preHandler: authenticate }, async (request) => {
+    assert(['approve', 'reject', 'ship', 'accept'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported stock request command'); const body = readBody<{ reason?: string }>(request);
 
- return envelope(await operationsRepository.commandStockRequest(actor(request), request.params.requestId, request.params.command, { reason: body.reason ?? '', idempotencyKey: readIdempotencyKey(request) }), request.id); });
+    return envelope(await operationsRepository.commandStockRequest(actor(request), request.params.requestId, request.params.command, { reason: body.reason ?? '', idempotencyKey: readIdempotencyKey(request) }), request.id);
+  });
   app.post<{ Body: CreateDailyCountInput }>('/api/v1/daily-counts', { preHandler: authenticate, schema: dailyCountSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createDailyCount(actor(request), readBody<CreateDailyCountInput>(request), request.id, readIdempotencyKey(request)), request.id)));
   app.post<{ Params: { countId: string } }>('/api/v1/daily-counts/:countId/submit', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.submitDailyCount(actor(request), request.params.countId, request.id, readIdempotencyKey(request)), request.id));
   app.post<{ Body: CreateWastageInput }>('/api/v1/wastage', { preHandler: authenticate, schema: wastageSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createWastage(actor(request), readBody<CreateWastageInput>(request), request.id, readIdempotencyKey(request)), request.id)));
