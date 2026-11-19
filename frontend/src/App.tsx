@@ -1,14 +1,14 @@
 import { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { MasterDataPanel } from './components/MasterDataPanel';
-import { StaffOperationsPanel } from './components/StaffOperationsPanel';
-import { BohInventoryPanel } from './components/BohInventoryPanel';
-import { BohDashboardPanel } from './components/BohDashboardPanel';
-import { FohQueuePanel } from './components/FohQueuePanel';
-import { GuestFrontDoor } from './components/GuestFrontDoor';
-import { GuestTableMenu } from './components/GuestTableMenu';
-import { FloorPanel } from './components/FloorPanel';
-import { StationKdsPanel } from './components/StationKdsPanel';
 import { LuminexLogo } from './components/LuminexLogo';
+import { BohDashboardPanel } from './features/boh/BohDashboardPanel';
+import { BohInventoryPanel } from './features/boh/BohInventoryPanel';
+import { MasterDataPanel } from './features/boh/MasterDataPanel';
+import { StaffOperationsPanel } from './features/boh/StaffOperationsPanel';
+import { FloorPanel } from './features/foh/FloorPanel';
+import { FohQueuePanel } from './features/foh/FohQueuePanel';
+import { GuestFrontDoor } from './features/guest/GuestFrontDoor';
+import { GuestTableMenu } from './features/guest/GuestTableMenu';
+import { StationKdsPanel } from './features/kds/StationKdsPanel';
 import { createApiClient, type Area, type Branch, type RestaurantTable, type SetupOverview } from './lib/api';
 
 const api = createApiClient(import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000/api');
