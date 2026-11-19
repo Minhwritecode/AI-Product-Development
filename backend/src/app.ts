@@ -1,24 +1,30 @@
-import { randomUUID } from 'node:crypto';
 import cors from '@fastify/cors';
-import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import fastifyJwt from '@fastify/jwt';
-import { AppError, assert, assertPermission } from './platform/errors.js';
-import { createMemoryRepository } from './platform/memory-repository.js';
-import type { Actor, PlatformRepository } from './platform/types.js';
-import { createMemoryOperationsRepository } from './operations/memory-repository.js';
-import { createMemoryFohRepository } from './foh/memory-repository.js';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { createMemoryFloorRepository } from './floor/memory-repository.js';
-import type { FloorRepository, ServiceSession } from './floor/types.js';
+import { registerFloorRoutes } from './floor/routes.js';
+import type { FloorRepository } from './floor/types.js';
+import { createMemoryFohRepository } from './foh/memory-repository.js';
+import { registerFohRoutes } from './foh/routes.js';
+import type { FohRepository } from './foh/types.js';
+import { createMemoryOperationsRepository } from './operations/memory-repository.js';
+import { registerOperationsRoutes } from './operations/routes.js';
+import type { OperationsRepository } from './operations/types.js';
 import { createMemoryOrderRepository } from './order/memory-repository.js';
+import { registerOrderRoutes } from './order/routes.js';
 import type { OrderRepository } from './order/types.js';
+import { AppError, assert } from './platform/errors.js';
+import { envelope } from './platform/http.js';
+import { createMemoryRepository } from './platform/memory-repository.js';
+import { registerPlatformRoutes } from './platform/routes.js';
+import type { PlatformRepository } from './platform/types.js';
 import { createMemoryStationRepository } from './station/memory-repository.js';
-import type { StationCode, StationRepository, TicketStatus } from './station/types.js';
-import type { CreateQueueInput, CreateReservationInput, FohRepository } from './foh/types.js';
-import type { CreateAssignmentInput, CreateCategoryInput, CreateDailyCountInput, CreateIngredientInput, CreateMenuItemInput, CreateMenuVersionInput, CreateModifierGroupInput, CreatePurchaseOrderInput, CreateRecipeInput, CreateShiftInput, CreateStaffInput, CreateStationAssignmentInput, CreateStockRequestInput, CreateSupplierInput, CreateTaskInput, CreateWastageInput, DashboardFilters, OperationsRepository, SetMenuItemAllergensInput, SetMenuItemAvailabilityInput, TaskCommandInput } from './operations/types.js';
+import { registerStationRoutes } from './station/routes.js';
+import type { StationRepository } from './station/types.js';
 
 type JwtPayload = { sub: string; sid: string };
 
-type AppOptions = {
+export type AppOptions = {
   repository?: PlatformRepository;
   operationsRepository?: OperationsRepository;
   fohRepository?: FohRepository;
@@ -28,98 +34,6 @@ type AppOptions = {
   jwtSecret?: string;
   databaseStatus?: () => Promise<'ok' | 'unavailable' | 'not-configured'>;
 };
-
-const loginSchema = { body: { type: 'object', required: ['email', 'password'], properties: { email: { type: 'string', format: 'email' }, password: { type: 'string', minLength: 8 } }, additionalProperties: false } } as const;
-
-const restaurantSchema = { body: { type: 'object', required: ['name'], properties: { name: { type: 'string', minLength: 2 }, defaultCurrency: { type: 'string', minLength: 3, maxLength: 3 }, defaultLocale: { type: 'string' } }, additionalProperties: false } } as const;
-
-const branchSchema = { body: { type: 'object', required: ['name', 'code'], properties: { name: { type: 'string', minLength: 2 }, code: { type: 'string', pattern: '^[A-Z0-9_-]{2,24}$' }, timezone: { type: 'string' }, currency: { type: 'string', minLength: 3, maxLength: 3 }, locale: { type: 'string' }, serviceHours: { type: 'object' } }, additionalProperties: false } } as const;
-
-const areaSchema = { body: { type: 'object', required: ['name'], properties: { name: { type: 'string', minLength: 2 }, sortOrder: { type: 'integer', minimum: 1 } }, additionalProperties: false } } as const;
-
-const tableSchema = { body: { type: 'object', required: ['label', 'capacity'], properties: { label: { type: 'string', minLength: 1 }, capacity: { type: 'integer', minimum: 1, maximum: 30 }, accessibilityTags: { type: 'array', items: { type: 'string' } } }, additionalProperties: false } } as const;
-
-const staffSchema = { body: { type: 'object', required: ['branchId', 'displayName', 'email', 'roleCodes'], properties: { branchId: { type: 'string', minLength: 1 }, displayName: { type: 'string', minLength: 2 }, email: { type: 'string', format: 'email' }, roleCodes: { type: 'array', minItems: 1, items: { type: 'string' } }, stationCodes: { type: 'array', items: { type: 'string' } }, stationAssignments: { type: 'array', items: { type: 'object', required: ['roleCode', 'stationCode'], properties: { roleCode: { type: 'string' }, stationCode: { type: 'string', minLength: 1 } }, additionalProperties: false } } }, additionalProperties: false } } as const;
-
-const shiftSchema = { body: { type: 'object', required: ['branchId', 'label', 'startsAt', 'endsAt'], properties: { branchId: { type: 'string' }, label: { type: 'string', minLength: 2 }, startsAt: { type: 'string', format: 'date-time' }, endsAt: { type: 'string', format: 'date-time' } }, additionalProperties: false } } as const;
-
-const assignmentSchema = { body: { type: 'object', required: ['staffId', 'roleCode'], properties: { staffId: { type: 'string' }, roleCode: { type: 'string' }, stationCode: { type: 'string' } }, additionalProperties: false } } as const;
-
-const taskSchema = { body: { type: 'object', required: ['branchId', 'title', 'sourceType'], properties: { branchId: { type: 'string' }, title: { type: 'string', minLength: 2 }, sourceType: { type: 'string', enum: ['SHIFT', 'QR_REQUEST', 'QUEUE', 'EXCEPTION', 'MANUAL'] }, sourceId: { type: 'string' }, priority: { type: 'string', enum: ['LOW', 'NORMAL', 'HIGH', 'URGENT'] }, requiredRole: { type: 'string' }, stationCode: { type: 'string' }, ownerId: { type: 'string' }, dueAt: { type: 'string', format: 'date-time' } }, additionalProperties: false } } as const;
-
-const taskCommandSchema = { body: { type: 'object', properties: { note: { type: 'string', maxLength: 500 }, ownerId: { type: 'string' }, stationCode: { type: 'string', minLength: 1 } }, additionalProperties: false } } as const;
-
-const ingredientSchema = { body: { type: 'object', required: ['name', 'purchaseUnit', 'stockUnit', 'purchaseToStock', 'standardCost'], properties: { name: { type: 'string', minLength: 2 }, purchaseUnit: { type: 'string', minLength: 1 }, stockUnit: { type: 'string', minLength: 1 }, purchaseToStock: { type: 'number', exclusiveMinimum: 0 }, standardCost: { type: 'number', minimum: 0 } }, additionalProperties: false } } as const;
-
-const supplierSchema = { body: { type: 'object', required: ['code', 'name'], properties: { code: { type: 'string', minLength: 2 }, name: { type: 'string', minLength: 2 } }, additionalProperties: false } } as const;
-
-const categorySchema = { body: { type: 'object', required: ['name'], properties: { name: { type: 'string', minLength: 2 }, sortOrder: { type: 'integer', minimum: 1 } }, additionalProperties: false } } as const;
-
-const menuItemSchema = { body: { type: 'object', required: ['categoryId', 'name', 'price', 'stationCode'], properties: { categoryId: { type: 'string' }, name: { type: 'string', minLength: 2 }, description: { type: 'string' }, price: { type: 'number', minimum: 0 }, currency: { type: 'string', minLength: 3, maxLength: 3 }, allergenCodes: { type: 'array', items: { type: 'string' } }, stationCode: { type: 'string', enum: ['KITCHEN', 'BAR'] } }, additionalProperties: false } } as const;
-
-const recipeSchema = { body: { type: 'object', required: ['menuItemId', 'stationCode', 'lines'], properties: { menuItemId: { type: 'string' }, stationCode: { type: 'string', enum: ['KITCHEN', 'BAR'] }, lines: { type: 'array', minItems: 1, items: { type: 'object', required: ['ingredientId', 'quantity', 'unit'], properties: { ingredientId: { type: 'string' }, quantity: { type: 'number', exclusiveMinimum: 0 }, unit: { type: 'string', minLength: 1 } }, additionalProperties: false } } }, additionalProperties: false } } as const;
-
-const stationAssignmentSchema = { body: { type: 'object', required: ['branchId', 'roleCode', 'stationCode'], properties: { branchId: { type: 'string' }, roleCode: { type: 'string' }, stationCode: { type: 'string', minLength: 1 }, effectiveFrom: { type: 'string', format: 'date-time' } }, additionalProperties: false } } as const;
-
-const menuVersionSchema = { body: { type: 'object', required: ['menuItemId', 'price', 'effectiveFrom'], properties: { menuItemId: { type: 'string' }, price: { type: 'number', minimum: 0 }, effectiveFrom: { type: 'string', format: 'date-time' } }, additionalProperties: false } } as const;
-
-const modifierSchema = { body: { type: 'object', required: ['menuItemId', 'name', 'options'], properties: { menuItemId: { type: 'string' }, name: { type: 'string', minLength: 2 }, required: { type: 'boolean' }, options: { type: 'array', minItems: 1, items: { type: 'object', required: ['label'], properties: { label: { type: 'string', minLength: 1 }, priceDelta: { type: 'number' } }, additionalProperties: false } } }, additionalProperties: false } } as const;
-
-const allergensSchema = { body: { type: 'object', required: ['allergenCodes'], properties: { allergenCodes: { type: 'array', uniqueItems: true, items: { type: 'string' } } }, additionalProperties: false } } as const;
-
-const availabilitySchema = { body: { type: 'object', required: ['status'], properties: { status: { type: 'string', enum: ['PUBLISHED', 'UNAVAILABLE', 'INACTIVE'] }, reason: { type: 'string', maxLength: 500 } }, additionalProperties: false } } as const;
-
-const purchaseOrderSchema = { body: { type: 'object', required: ['branchId', 'supplierId', 'lines'], properties: { branchId: { type: 'string' }, supplierId: { type: 'string' }, lines: { type: 'array', minItems: 1, items: { type: 'object', required: ['ingredientId', 'orderedQuantity', 'unit'], properties: { ingredientId: { type: 'string' }, orderedQuantity: { type: 'number', exclusiveMinimum: 0 }, unit: { type: 'string' } }, additionalProperties: false } } }, additionalProperties: false } } as const;
-
-const goodsReceiptSchema = { body: { type: 'object', required: ['branchId', 'purchaseOrderId', 'lines'], properties: { branchId: { type: 'string' }, purchaseOrderId: { type: 'string' }, lines: { type: 'array', minItems: 1, items: { type: 'object', required: ['ingredientId', 'acceptedQuantity', 'damagedQuantity', 'rejectedQuantity', 'unit'], properties: { ingredientId: { type: 'string' }, acceptedQuantity: { type: 'number', minimum: 0 }, damagedQuantity: { type: 'number', minimum: 0 }, rejectedQuantity: { type: 'number', minimum: 0 }, unit: { type: 'string' }, note: { type: 'string', maxLength: 500 } }, additionalProperties: false } } }, additionalProperties: false } } as const;
-
-const stockRequestSchema = { body: { type: 'object', required: ['fromLocationId', 'toLocationId', 'reason', 'lines'], properties: { fromLocationId: { type: 'string' }, toLocationId: { type: 'string' }, reason: { type: 'string', minLength: 3, maxLength: 500 }, lines: { type: 'array', minItems: 1, items: { type: 'object', required: ['ingredientId', 'requestedQuantity', 'unit'], properties: { ingredientId: { type: 'string' }, requestedQuantity: { type: 'number', exclusiveMinimum: 0 }, unit: { type: 'string' } }, additionalProperties: false } } }, additionalProperties: false } } as const;
-
-const dailyCountSchema = { body: { type: 'object', required: ['branchId', 'businessDate', 'lines'], properties: { branchId: { type: 'string' }, businessDate: { type: 'string', format: 'date' }, lines: { type: 'array', minItems: 1, items: { type: 'object', required: ['ingredientId', 'openingQuantity', 'receivedQuantity', 'closingQuantity', 'unit'], properties: { ingredientId: { type: 'string' }, openingQuantity: { type: 'number', minimum: 0 }, receivedQuantity: { type: 'number', minimum: 0 }, theoreticalSoldQuantity: { type: 'number', minimum: 0 }, closingQuantity: { type: 'number', minimum: 0 }, unit: { type: 'string' } }, additionalProperties: false } } }, additionalProperties: false } } as const;
-
-const wastageSchema = { body: { type: 'object', required: ['branchId', 'ingredientId', 'quantity', 'unit', 'reason'], properties: { branchId: { type: 'string' }, ingredientId: { type: 'string' }, quantity: { type: 'number', exclusiveMinimum: 0 }, unit: { type: 'string' }, reason: { type: 'string', minLength: 3, maxLength: 200 }, note: { type: 'string', maxLength: 500 } }, additionalProperties: false } } as const;
-
-const reservationSchema = { body: { type: 'object', required: ['branchId', 'partySize', 'reservedFor', 'language'], properties: { branchId: { type: 'string', minLength: 1 }, partySize: { type: 'integer', minimum: 1, maximum: 20 }, reservedFor: { type: 'string', format: 'date-time' }, durationMinutes: { type: 'integer', minimum: 15, maximum: 360 }, language: { type: 'string', enum: ['vi', 'en'] }, nickname: { type: 'string', maxLength: 60 } }, additionalProperties: false } } as const;
-
-declare module 'fastify' {
-  interface FastifyRequest {
-    actor?: Actor;
-    sessionId?: string;
-  }
-}
-
-function envelope<T>(data: T, requestId: string) {
-  return { data, meta: { requestId }, error: null };
-}
-
-function readBody<T>(request: FastifyRequest): T {
-  // SAFETY: Each command route declares a Fastify JSON schema before this boundary; an absent body is treated as an empty invalid input.
-  return (request.body ?? {}) as T;
-}
-
-function readIdempotencyKey(request: FastifyRequest): string {
-  const header = request.headers['idempotency-key'];
-  const value = Array.isArray(header) ? header[0] : header;
-  assert(value !== undefined && value.trim().length >= 8, 'VALIDATION_ERROR', 'Idempotency-Key header is required for this command');
-
-  return value.trim();
-}
-
-function readGuestAccessToken(request: FastifyRequest): string {
-  const header = request.headers['x-queue-access-token'];
-  const value = Array.isArray(header) ? header[0] : header;
-  assert(value !== undefined && value.trim().length >= 16, 'UNAUTHENTICATED', 'Queue access token is required', 401);
-
-  return value.trim();
-}
-
-function readTableToken(request: FastifyRequest): string {
-  const header = request.headers['x-table-token'];
-  const value = Array.isArray(header) ? header[0] : header;
-  assert(value !== undefined && value.trim().length > 32, 'UNAUTHENTICATED', 'Table QR token is required', 401);
-
-  return value.trim();
-}
 
 export function buildApp(options: AppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: true, requestIdHeader: 'x-request-id' });
@@ -165,12 +79,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     }
   }
 
-  function actor(request: FastifyRequest): Actor {
-    assert(request.actor, 'UNAUTHENTICATED', 'Authentication required', 401);
-
-    return request.actor;
-  }
-
+  // System & Health endpoints
   app.get('/health', async (request) => envelope({ status: 'ok', service: 'luminex-backend', version: 'platform-foundation' }, request.id));
 
   app.get('/ready', async (request, reply) => {
@@ -182,214 +91,13 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
 
   app.get('/api/v1', async (request) => envelope({ name: 'Luminex API', version: 'v1', status: 'platform-foundation' }, request.id));
 
-  app.post<{ Body: { email: string; password: string } }>('/api/v1/auth/login', { schema: loginSchema }, async (request, reply) => {
-    const { email, password } = readBody<{ email: string; password: string }>(request);
-    const user = await repository.authenticate(email.toLowerCase().trim(), password);
-    assert(user, 'INVALID_CREDENTIALS', 'Email or password is incorrect', 401);
-    const sessionId = `sess_${randomUUID()}`;
-    const token = await app.jwt.sign({ sub: user.id, sid: sessionId });
-
-    return reply.send(envelope({ token, user }, request.id));
-  });
-
-  app.post('/api/v1/auth/logout', { preHandler: authenticate }, async (request) => {
-    const currentActor = actor(request);
-    const sessionId = request.sessionId;
-    assert(sessionId, 'UNAUTHENTICATED', 'Authentication required', 401);
-    await repository.revokeSession(sessionId, currentActor, request.id);
-
-    return envelope({ revoked: true }, request.id);
-  });
-
-  app.get('/api/v1/auth/me', { preHandler: authenticate }, async (request) => envelope({ user: actor(request), sessionId: request.sessionId }, request.id));
-  app.get('/api/v1/setup/overview', { preHandler: authenticate }, async (request) => envelope(await repository.getSetupOverview(actor(request)), request.id));
-
-  app.get<{ Params: { branchId: string } }>('/api/v1/branches/:branchId/setup', { preHandler: authenticate }, async (request) => envelope(await repository.getBranchSetup(actor(request), request.params.branchId), request.id));
-
-  app.post<{ Body: { name: string; defaultCurrency?: string; defaultLocale?: string } }>('/api/v1/restaurants', { preHandler: authenticate, schema: restaurantSchema }, async (request, reply) => {
-    const input = readBody<{ name: string; defaultCurrency?: string; defaultLocale?: string }>(request);
-    assertPermission(actor(request), 'restaurant:write');
-
-    return reply.code(201).send(envelope(await repository.createRestaurant(actor(request), { name: input.name, defaultCurrency: input.defaultCurrency, defaultLocale: input.defaultLocale }, request.id), request.id));
-  });
-
-  app.post<{ Params: { restaurantId: string }; Body: { name: string; code: string; timezone?: string; currency?: string; locale?: string; serviceHours?: Record<string, { open: string; close: string }> } }>('/api/v1/restaurants/:restaurantId/branches', { preHandler: authenticate, schema: branchSchema }, async (request, reply) => {
-    const input = readBody<{ name: string; code: string; timezone?: string; currency?: string; locale?: string; serviceHours?: Record<string, { open: string; close: string }> }>(request);
-
-    return reply.code(201).send(envelope(await repository.createBranch(actor(request), request.params.restaurantId, { name: input.name, code: input.code, timezone: input.timezone, currency: input.currency, locale: input.locale, serviceHours: input.serviceHours }, request.id), request.id));
-  });
-
-  app.patch<{ Params: { branchId: string }; Body: { name?: string; timezone?: string; currency?: string; locale?: string; serviceHours?: Record<string, { open: string; close: string }>; status?: 'ACTIVE' | 'INACTIVE' } }>('/api/v1/branches/:branchId', { preHandler: authenticate }, async (request) => {
-    const input = readBody<{ name?: string; timezone?: string; currency?: string; locale?: string; serviceHours?: Record<string, { open: string; close: string }>; status?: 'ACTIVE' | 'INACTIVE' }>(request);
-
-    return envelope(await repository.updateBranch(actor(request), request.params.branchId, input, request.id), request.id);
-  });
-
-  app.post<{ Params: { branchId: string }; Body: { name: string; sortOrder?: number } }>('/api/v1/branches/:branchId/areas', { preHandler: authenticate, schema: areaSchema }, async (request, reply) => {
-    const input = readBody<{ name: string; sortOrder?: number }>(request);
-
-    return reply.code(201).send(envelope(await repository.createArea(actor(request), request.params.branchId, { name: input.name, sortOrder: input.sortOrder }, request.id), request.id));
-  });
-
-  app.post<{ Params: { areaId: string }; Body: { label: string; capacity: number; accessibilityTags?: string[] } }>('/api/v1/areas/:areaId/tables', { preHandler: authenticate, schema: tableSchema }, async (request, reply) => {
-    const input = readBody<{ label: string; capacity: number; accessibilityTags?: string[] }>(request);
-
-    return reply.code(201).send(envelope(await repository.createTable(actor(request), request.params.areaId, { label: input.label, capacity: input.capacity, accessibilityTags: input.accessibilityTags }, request.id), request.id));
-  });
-
-  app.get<{ Querystring: { branchId: string } }>('/api/v1/operations/workspace', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.getStaffWorkspace(actor(request), request.query.branchId), request.id));
-  app.post<{ Body: CreateStaffInput }>('/api/v1/staff', { preHandler: authenticate, schema: staffSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createStaff(actor(request), readBody<CreateStaffInput>(request), request.id), request.id)));
-  app.post<{ Body: CreateShiftInput }>('/api/v1/shifts', { preHandler: authenticate, schema: shiftSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createShift(actor(request), readBody<CreateShiftInput>(request), request.id), request.id)));
-  app.post<{ Params: { shiftId: string }; Body: CreateAssignmentInput }>('/api/v1/shifts/:shiftId/assignments', { preHandler: authenticate, schema: assignmentSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.assignShift(actor(request), request.params.shiftId, readBody<CreateAssignmentInput>(request), request.id), request.id)));
-  app.post<{ Params: { staffId: string }; Body: CreateStationAssignmentInput }>('/api/v1/staff/:staffId/station-assignments', { preHandler: authenticate, schema: stationAssignmentSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createStationAssignment(actor(request), request.params.staffId, readBody<CreateStationAssignmentInput>(request), request.id), request.id)));
-  app.post<{ Body: CreateTaskInput }>('/api/v1/operational-tasks', { preHandler: authenticate, schema: taskSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createTask(actor(request), readBody<CreateTaskInput>(request), request.id), request.id)));
-  app.post<{ Params: { taskId: string; command: 'claim' | 'route' | 'resolve' | 'escalate' | 'handover' }; Body: TaskCommandInput }>('/api/v1/operational-tasks/:taskId/:command', { preHandler: authenticate, schema: taskCommandSchema }, async (request) => {
-    assert(['claim', 'route', 'resolve', 'escalate', 'handover'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported task command');
-
-    return envelope(await operationsRepository.commandTask(actor(request), request.params.taskId, request.params.command, readBody<TaskCommandInput>(request), request.id), request.id);
-  });
-  app.get<{ Querystring: { branchId: string } }>('/api/v1/master-data/overview', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.getMasterData(actor(request), request.query.branchId), request.id));
-  app.post<{ Body: CreateIngredientInput }>('/api/v1/ingredients', { preHandler: authenticate, schema: ingredientSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createIngredient(actor(request), readBody<CreateIngredientInput>(request), request.id), request.id)));
-  app.post<{ Body: CreateSupplierInput }>('/api/v1/suppliers', { preHandler: authenticate, schema: supplierSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createSupplier(actor(request), readBody<CreateSupplierInput>(request), request.id), request.id)));
-  app.post<{ Body: CreateCategoryInput }>('/api/v1/menu/categories', { preHandler: authenticate, schema: categorySchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createCategory(actor(request), readBody<CreateCategoryInput>(request), request.id), request.id)));
-  app.post<{ Body: CreateMenuItemInput }>('/api/v1/menu/items', { preHandler: authenticate, schema: menuItemSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createMenuItem(actor(request), readBody<CreateMenuItemInput>(request), request.id), request.id)));
-  app.post<{ Params: { menuItemId: string } }>('/api/v1/menu/items/:menuItemId/publish', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.publishMenuItem(actor(request), request.params.menuItemId, request.id), request.id));
-  app.post<{ Body: CreateMenuVersionInput }>('/api/v1/menu/versions', { preHandler: authenticate, schema: menuVersionSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createMenuVersion(actor(request), readBody<CreateMenuVersionInput>(request), request.id), request.id)));
-  app.post<{ Body: CreateModifierGroupInput }>('/api/v1/menu/modifier-groups', { preHandler: authenticate, schema: modifierSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createModifierGroup(actor(request), readBody<CreateModifierGroupInput>(request), request.id), request.id)));
-  app.post<{ Params: { menuItemId: string }; Body: SetMenuItemAllergensInput }>('/api/v1/menu/items/:menuItemId/allergens', { preHandler: authenticate, schema: allergensSchema }, async (request) => envelope(await operationsRepository.setMenuItemAllergens(actor(request), request.params.menuItemId, readBody<SetMenuItemAllergensInput>(request), request.id), request.id));
-  app.post<{ Params: { menuItemId: string }; Body: SetMenuItemAvailabilityInput }>('/api/v1/menu/items/:menuItemId/availability', { preHandler: authenticate, schema: availabilitySchema }, async (request) => envelope(await operationsRepository.setMenuItemAvailability(actor(request), request.params.menuItemId, readBody<SetMenuItemAvailabilityInput>(request), request.id), request.id));
-  app.post<{ Body: CreateRecipeInput }>('/api/v1/recipes', { preHandler: authenticate, schema: recipeSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createRecipe(actor(request), readBody<CreateRecipeInput>(request), request.id), request.id)));
-  app.post<{ Params: { recipeId: string } }>('/api/v1/recipes/:recipeId/publish', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.publishRecipe(actor(request), request.params.recipeId, request.id), request.id));
-
-  app.get<{ Querystring: { branchId: string } }>('/api/v1/boh/workspace', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.getBohWorkspace(actor(request), request.query.branchId), request.id));
-  app.get<{ Querystring: { branchId?: string; branchIds?: string; from?: string; to?: string; groupBy?: 'branch' | 'ingredient' } }>('/api/v1/dashboard/summary', { preHandler: authenticate }, async (request) => {
-    const currentActor = actor(request);
-    const setup = await repository.getSetupOverview(currentActor);
-    const branchIds = request.query.branchIds ? request.query.branchIds.split(',').map((branchId) => branchId.trim()).filter(Boolean) : request.query.branchId ? [request.query.branchId] : setup.branches.map((branch) => branch.id);
-    const filters: DashboardFilters = { branchIds, from: request.query.from, to: request.query.to, groupBy: request.query.groupBy ?? 'ingredient' };
-    const report = await operationsRepository.getDashboardReport(currentActor, filters);
-    const audit = await repository.getAuditLogs(currentActor, { branchId: branchIds.length === 1 ? branchIds[0] : undefined, limit: 40 });
-
-    return envelope({ ...report, audit }, request.id);
-  });
-  app.get<{ Querystring: { branchId?: string; from?: string; to?: string; groupBy?: 'branch' | 'ingredient' } }>('/api/v1/dashboard/wastage-breakdown', { preHandler: authenticate }, async (request) => {
-    const currentActor = actor(request);
-    const setup = await repository.getSetupOverview(currentActor);
-    const branchIds = request.query.branchId ? [request.query.branchId] : setup.branches.map((branch) => branch.id);
-    const report = await operationsRepository.getDashboardReport(currentActor, { branchIds, from: request.query.from, to: request.query.to, groupBy: request.query.groupBy ?? 'ingredient' });
-
-    return envelope({ asOf: report.asOf, freshness: report.freshness, breakdown: report.wastageBreakdown }, request.id);
-  });
-  app.get<{ Querystring: { branchId?: string } }>('/api/v1/dashboard/low-stock', { preHandler: authenticate }, async (request) => {
-    const currentActor = actor(request);
-    const setup = await repository.getSetupOverview(currentActor);
-    const branchIds = request.query.branchId ? [request.query.branchId] : setup.branches.map((branch) => branch.id);
-    const report = await operationsRepository.getDashboardReport(currentActor, { branchIds });
-
-    return envelope({ asOf: report.asOf, freshness: report.freshness, items: report.lowStock }, request.id);
-  });
-  app.get<{ Querystring: { branchId?: string } }>('/api/v1/reconciliation/inventory', { preHandler: authenticate }, async (request) => {
-    const currentActor = actor(request);
-    const setup = await repository.getSetupOverview(currentActor);
-    const branchIds = request.query.branchId ? [request.query.branchId] : setup.branches.map((branch) => branch.id);
-    const report = await operationsRepository.getDashboardReport(currentActor, { branchIds });
-
-    return envelope({ asOf: report.asOf, freshness: report.freshness, items: report.discrepancies }, request.id);
-  });
-  app.get<{ Querystring: { branchId?: string; entityType?: string; action?: string; limit?: number } }>('/api/v1/audit/logs', { preHandler: authenticate }, async (request) => envelope(await repository.getAuditLogs(actor(request), request.query), request.id));
-  app.get<{ Querystring: { branchId: string } }>('/api/v1/guest/front-door/status', async (request) => envelope(await fohRepository.getFrontDoorStatus(request.query.branchId), request.id));
-  app.post<{ Body: CreateQueueInput }>('/api/v1/guest/queues', { schema: { body: { type: 'object', required: ['branchId', 'partySize', 'timeBudgetMinutes', 'language'], properties: { branchId: { type: 'string' }, partySize: { type: 'integer', minimum: 1, maximum: 20 }, timeBudgetMinutes: { type: 'integer', minimum: 15, maximum: 180 }, language: { type: 'string', enum: ['vi', 'en'] }, nickname: { type: 'string', maxLength: 60 }, notificationOptIn: { type: 'boolean' }, contact: { type: 'string', maxLength: 160 } }, additionalProperties: false } } }, async (request, reply) => reply.code(201).send(envelope(await fohRepository.joinQueue(request.body, readIdempotencyKey(request)), request.id)));
-  app.get<{ Params: { queueId: string } }>('/api/v1/guest/queues/:queueId', async (request) => envelope(await fohRepository.getQueueEntry(request.params.queueId, readGuestAccessToken(request)), request.id));
-  app.post<{ Params: { queueId: string } }>('/api/v1/guest/queues/:queueId/leave', async (request) => envelope(await fohRepository.leaveQueue(request.params.queueId, readGuestAccessToken(request), readIdempotencyKey(request)), request.id));
-  app.get<{ Querystring: { branchId: string } }>('/api/v1/foh/queues', { preHandler: authenticate }, async (request) => envelope(await fohRepository.listQueue(actor(request), request.query.branchId), request.id));
-  app.post<{ Params: { queueId: string; command: 'call' | 'seat' | 'cancel' | 'expire' }; Body: { reason?: string } }>('/api/v1/foh/queues/:queueId/:command', { preHandler: authenticate }, async (request) => {
-    assert(['call', 'seat', 'cancel', 'expire'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported queue command');
-
-    return envelope(await fohRepository.commandQueue(actor(request), request.params.queueId, request.params.command, request.id, readBody<{ reason?: string }>(request).reason), request.id);
-  });
-  app.patch<{ Params: { branchId: string }; Body: { state: 'OPEN' | 'PAUSED' | 'FULL' | 'CLOSED'; reason: string } }>('/api/v1/branches/:branchId/operating-state', { preHandler: authenticate }, async (request) => envelope(await fohRepository.setOperatingState(actor(request), request.params.branchId, request.body.state, request.body.reason, request.id), request.id));
-  app.get<{ Querystring: { branchId: string; date?: string } }>('/api/v1/reservations', { preHandler: authenticate }, async (request) => envelope(await fohRepository.listReservations(actor(request), request.query.branchId, request.query.date), request.id));
-  app.get<{ Params: { branchId: string } }>('/api/v1/branches/:branchId/floor', { preHandler: authenticate }, async (request) => envelope(await floorRepository.board(actor(request), request.params.branchId), request.id));
-  app.post<{ Body: { branchId: string; tableId: string; partySize: number; minutes: number } }>('/api/v1/table-holds', { preHandler: authenticate }, async (request) => envelope(await floorRepository.hold(actor(request), request.body, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Body: { branchId: string; tableId: string; partySize: number; sourceType: ServiceSession['sourceType']; sourceId?: string } }>('/api/v1/service-sessions', { preHandler: authenticate, schema: { body: { type: 'object', required: ['branchId', 'tableId', 'partySize', 'sourceType'], properties: { branchId: { type: 'string', minLength: 1 }, tableId: { type: 'string', minLength: 1 }, partySize: { type: 'integer', minimum: 1, maximum: 30 }, sourceType: { type: 'string', enum: ['WALK_IN', 'QUEUE', 'RESERVATION'] }, sourceId: { type: 'string', minLength: 1 } }, additionalProperties: false } } }, async (request, reply) => reply.code(201).send(envelope(await floorRepository.seat(actor(request), request.body, readIdempotencyKey(request), request.id), request.id)));
-  app.post<{ Params: { sessionId: string } }>('/api/v1/service-sessions/:sessionId/vacate', { preHandler: authenticate }, async (request) => envelope(await floorRepository.vacate(actor(request), request.params.sessionId, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Params: { sessionId: string }; Body: { tableId: string } }>('/api/v1/service-sessions/:sessionId/transfer', { preHandler: authenticate }, async (request) => envelope(await floorRepository.transfer(actor(request), request.params.sessionId, request.body.tableId, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Params: { taskId: string } }>('/api/v1/cleaning-tasks/:taskId/claim', { preHandler: authenticate }, async (request) => envelope(await floorRepository.claimCleaning(actor(request), request.params.taskId, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Params: { taskId: string } }>('/api/v1/cleaning-tasks/:taskId/complete', { preHandler: authenticate }, async (request) => envelope(await floorRepository.completeCleaning(actor(request), request.params.taskId, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Params: { tableId: string } }>('/api/v1/tables/:tableId/qr-token', { preHandler: authenticate }, async (request) => envelope(await orderRepository.issueTableToken(actor(request), request.params.tableId, request.id), request.id));
-  app.get('/api/v1/guest/table-menu', async (request) => envelope(await orderRepository.guestMenu(readTableToken(request)), request.id));
-  app.post<{ Body: { lines: Array<{ menuItemId: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string }> } }>('/api/v1/guest/table-requests', async (request, reply) => reply.code(201).send(envelope(await orderRepository.submitGuestRequest(readTableToken(request), request.body.lines, readIdempotencyKey(request)), request.id)));
-  app.get<{ Querystring: { branchId: string } }>('/api/v1/foh/requests', { preHandler: authenticate }, async (request) => envelope(await orderRepository.listRequests(actor(request), request.query.branchId), request.id));
-  app.post<{ Params: { requestId: string; command: 'acknowledge' | 'reject' | 'complete' } }>('/api/v1/foh/requests/:requestId/:command', { preHandler: authenticate }, async (request) => {
-    assert(['acknowledge', 'reject', 'complete'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported request command');
-
-    return envelope(await orderRepository.commandRequest(actor(request), request.params.requestId, request.params.command, readIdempotencyKey(request), request.id), request.id);
-  });
-  app.post<{ Params: { sessionId: string }; Body: { branchId: string; coursePolicy: 'AS_READY' | 'SERVE_TOGETHER'; lines: Array<{ menuItemId: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string }> } }>('/api/v1/service-sessions/:sessionId/orders', { preHandler: authenticate }, async (request, reply) => reply.code(201).send(envelope(await orderRepository.createDraft(actor(request), { ...request.body, serviceSessionId: request.params.sessionId }, readIdempotencyKey(request), request.id), request.id)));
-  app.patch<{ Params: { orderId: string }; Body: { coursePolicy: 'AS_READY' | 'SERVE_TOGETHER'; lines: Array<{ menuItemId: string; quantity: number; modifierOptionIds?: string[]; allergenNote?: string; guestNote?: string }> } }>('/api/v1/orders/:orderId', { preHandler: authenticate }, async (request) => envelope(await orderRepository.updateDraft(actor(request), request.params.orderId, request.body, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Params: { orderId: string } }>('/api/v1/orders/:orderId/send', { preHandler: authenticate }, async (request) => {
-    const result = await orderRepository.send(actor(request), request.params.orderId, readIdempotencyKey(request), request.id);
-
-    if (stationRepository.createTicketDirect) {
-      for (const stationCode of ['KITCHEN', 'BAR'] as const) {
-        const stationLines = result.lines.filter((line) => line.stationCode === stationCode);
-
-        if (!stationLines.length) continue;
-        stationRepository.createTicketDirect({
-          id: `ticket_${randomUUID()}`,
-          orderId: result.id,
-          branchId: result.branchId,
-          stationCode,
-          status: 'NEW',
-          tableLabel: 'T01',
-          roundNumber: result.roundNumber,
-          coursePolicy: result.coursePolicy,
-          lines: stationLines,
-          createdAt: new Date().toISOString()
-        });
-      }
-    }
-
-    return envelope(result, request.id);
-  });
-  app.get<{ Params: { station: string }; Querystring: { branchId: string; status?: TicketStatus } }>('/api/v1/stations/:station/tickets', { preHandler: authenticate }, async (request) => {
-    assert(request.params.station === 'KITCHEN' || request.params.station === 'BAR', 'VALIDATION_ERROR', 'Station must be KITCHEN or BAR');
-    const stationCode: StationCode = request.params.station === 'KITCHEN' ? 'KITCHEN' : 'BAR';
-
-    return envelope(await stationRepository.listTickets(actor(request), request.query.branchId, stationCode, request.query.status), request.id);
-  });
-  app.get<{ Params: { branchId: string } }>('/api/v1/branches/:branchId/serving-queue', { preHandler: authenticate }, async (request) => envelope(await stationRepository.servingQueue(actor(request), request.params.branchId), request.id));
-  app.post<{ Params: { ticketId: string } }>('/api/v1/tickets/:ticketId/accept', { preHandler: authenticate }, async (request) => envelope(await stationRepository.accept(actor(request), request.params.ticketId, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Params: { ticketId: string } }>('/api/v1/tickets/:ticketId/start', { preHandler: authenticate }, async (request) => envelope(await stationRepository.start(actor(request), request.params.ticketId, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Params: { ticketId: string } }>('/api/v1/tickets/:ticketId/ready', { preHandler: authenticate }, async (request) => envelope(await stationRepository.ready(actor(request), request.params.ticketId, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Params: { ticketId: string } }>('/api/v1/tickets/:ticketId/complete', { preHandler: authenticate }, async (request) => envelope(await stationRepository.ready(actor(request), request.params.ticketId, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Params: { ticketId: string }; Body: { reason: string } }>('/api/v1/tickets/:ticketId/delay', { preHandler: authenticate }, async (request) => envelope(await stationRepository.delay(actor(request), request.params.ticketId, request.body.reason, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Params: { ticketId: string }; Body: { reason: string } }>('/api/v1/tickets/:ticketId/reject', { preHandler: authenticate }, async (request) => envelope(await stationRepository.reject(actor(request), request.params.ticketId, request.body.reason, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Params: { ticketId: string } }>('/api/v1/tickets/:ticketId/pick-up', { preHandler: authenticate }, async (request) => envelope(await stationRepository.pickup(actor(request), request.params.ticketId, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Params: { ticketId: string } }>('/api/v1/tickets/:ticketId/serve', { preHandler: authenticate }, async (request) => envelope(await stationRepository.serve(actor(request), request.params.ticketId, readIdempotencyKey(request), request.id), request.id));
-  app.post<{ Body: CreateReservationInput }>('/api/v1/reservations', { preHandler: authenticate, schema: reservationSchema }, async (request, reply) => reply.code(201).send(envelope(await fohRepository.createReservation(actor(request), readBody<CreateReservationInput>(request), readIdempotencyKey(request), request.id), request.id)));
-  app.post<{ Params: { reservationId: string; command: 'confirm' | 'arrive' | 'cancel' | 'no-show' } }>('/api/v1/reservations/:reservationId/:command', { preHandler: authenticate }, async (request) => {
-    assert(['confirm', 'arrive', 'cancel', 'no-show'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported reservation command');
-
-    return envelope(await fohRepository.commandReservation(actor(request), request.params.reservationId, request.params.command, readIdempotencyKey(request), request.id), request.id);
-  });
-  app.post<{ Body: CreatePurchaseOrderInput }>('/api/v1/purchase-orders', { preHandler: authenticate, schema: purchaseOrderSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createPurchaseOrder(actor(request), readBody<CreatePurchaseOrderInput>(request), request.id, readIdempotencyKey(request)), request.id)));
-  app.post<{ Params: { purchaseOrderId: string; command: 'send' | 'cancel' } }>('/api/v1/purchase-orders/:purchaseOrderId/:command', { preHandler: authenticate }, async (request) => {
-    assert(['send', 'cancel'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported purchase order command');
-
-    return envelope(await operationsRepository.commandPurchaseOrder(actor(request), request.params.purchaseOrderId, request.params.command, request.id, readIdempotencyKey(request)), request.id);
-  });
-  app.post<{ Body: import('./operations/types.js').ConfirmGoodsReceiptInput }>('/api/v1/goods-receipts/confirm', { preHandler: authenticate, schema: goodsReceiptSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.confirmGoodsReceipt(actor(request), readBody<import('./operations/types.js').ConfirmGoodsReceiptInput>(request), request.id, readIdempotencyKey(request)), request.id)));
-  app.post<{ Body: CreateStockRequestInput }>('/api/v1/stock-requests', { preHandler: authenticate, schema: stockRequestSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createStockRequest(actor(request), readBody<CreateStockRequestInput>(request), request.id, readIdempotencyKey(request)), request.id)));
-  app.post<{ Params: { requestId: string; command: 'approve' | 'reject' | 'ship' | 'accept' }; Body: { reason?: string } }>('/api/v1/stock-requests/:requestId/:command', { preHandler: authenticate }, async (request) => {
-    assert(['approve', 'reject', 'ship', 'accept'].includes(request.params.command), 'VALIDATION_ERROR', 'Unsupported stock request command'); const body = readBody<{ reason?: string }>(request);
-
-    return envelope(await operationsRepository.commandStockRequest(actor(request), request.params.requestId, request.params.command, { reason: body.reason ?? '', idempotencyKey: readIdempotencyKey(request) }), request.id);
-  });
-  app.post<{ Body: CreateDailyCountInput }>('/api/v1/daily-counts', { preHandler: authenticate, schema: dailyCountSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createDailyCount(actor(request), readBody<CreateDailyCountInput>(request), request.id, readIdempotencyKey(request)), request.id)));
-  app.post<{ Params: { countId: string } }>('/api/v1/daily-counts/:countId/submit', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.submitDailyCount(actor(request), request.params.countId, request.id, readIdempotencyKey(request)), request.id));
-  app.post<{ Body: CreateWastageInput }>('/api/v1/wastage', { preHandler: authenticate, schema: wastageSchema }, async (request, reply) => reply.code(201).send(envelope(await operationsRepository.createWastage(actor(request), readBody<CreateWastageInput>(request), request.id, readIdempotencyKey(request)), request.id)));
-  app.post<{ Params: { wastageId: string } }>('/api/v1/wastage/:wastageId/submit', { preHandler: authenticate }, async (request) => envelope(await operationsRepository.submitWastage(actor(request), request.params.wastageId, request.id, readIdempotencyKey(request)), request.id));
+  // Domain routes
+  registerPlatformRoutes(app, repository, authenticate);
+  registerOperationsRoutes(app, operationsRepository, repository, authenticate);
+  registerFohRoutes(app, fohRepository, authenticate);
+  registerFloorRoutes(app, floorRepository, authenticate);
+  registerOrderRoutes(app, orderRepository, authenticate, stationRepository);
+  registerStationRoutes(app, stationRepository, authenticate);
 
   return app;
 }
